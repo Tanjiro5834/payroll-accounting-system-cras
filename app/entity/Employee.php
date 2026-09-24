@@ -119,4 +119,23 @@ class Employee {
     public function getIsActive() {
         return $this->is_active;
     }
+
+    public function toArray(): array
+    {
+        return [
+            'id'                => $this->id,
+            'full_name'         => $this->full_name,
+            'role'              => $this->role,
+            'profile_photo_url' => $this->profile_photo_url,
+            'sss_number'        => $this->sss_number,
+            'philhealth_number' => $this->philhealth_number,
+            'pagibig_number'    => $this->pagibig_number,
+            'tin_number'        => $this->tin_number,
+            'hourly_rate'       => $this->hourly_rate,
+            'monthly_rate'      => $this->monthly_rate,
+            'pay_frequency'     => $this->pay_frequency,
+            'date_hired'        => $this->date_hired,
+            'is_active'         => $this->is_active,
+        ];
+    }
 }

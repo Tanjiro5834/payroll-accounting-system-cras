@@ -62,6 +62,16 @@ if ($action === null) {
     exit;
 }
 
+if ($action === null) {
+    $csrf = htmlspecialchars((new CsrfMiddleware())->getToken(), ENT_QUOTES);
+    echo str_replace(
+        '</head>',
+        "<meta name=\"csrf-token\" content=\"$csrf\">\n</head>",
+        file_get_contents(__DIR__ . "/views/$view.html")
+    );
+    exit;
+}
+
 // Action → call controller: ?page=employees&action=show&id=5 → EmployeeController::show(5)
 if (!in_array($action, $actions, true)) {
     http_response_code(404);
