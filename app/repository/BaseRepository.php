@@ -8,6 +8,6 @@ class BaseRepository{
     protected PDO $db;
 
     public function __construct(){
-        $this->db = Database::connection();
+        $this->db = \Database::getInstance()->getConnection();
     }
 }

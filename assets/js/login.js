@@ -16,4 +16,11 @@
       isPassword ? "Hide password" : "Show password",
     );
   });
+
+  if (new URLSearchParams(location.search).has("error")) {
+    document.getElementById("login-form").insertAdjacentHTML(
+      "afterbegin",
+      '<p class="text-sm text-red-600">Invalid username or password.</p>'
+    );
+  }
 })();

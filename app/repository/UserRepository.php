@@ -3,6 +3,10 @@ namespace App\Repository;
 
 use App\Entity\User;
 
+use PDO;
+use Exception;
+use DomainException;
+
 class UserRepository extends BaseRepository{
     // Create
     public function create(User $user): int {
