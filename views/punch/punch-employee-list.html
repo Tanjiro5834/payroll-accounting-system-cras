@@ -1,0 +1,91 @@
+<!-- punch-employee-list.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Select Employee — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="font-sans bg-slate-50 text-slate-900 min-h-screen">
+
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-bold tracking-tight text-slate-900 truncate">Coronacion Timekeeping</p>
+                    <p class="text-xs text-slate-500">Select your name to punch</p>
+                </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+                <p id="live-time" class="font-mono text-base sm:text-lg font-semibold text-slate-900 leading-tight tabular-nums">--:--:--</p>
+                <p id="live-date" class="text-xs text-slate-500 leading-tight">Loading…</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-24">
+
+        <!-- Search -->
+        <div class="mb-6">
+            <label for="search-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Search employee</label>
+            <div class="relative">
+                <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Type a name…"
+                    autocomplete="off"
+                    class="w-full pl-11 pr-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-h-[44px]"
+                >
+            </div>
+        </div>
+
+        <!-- Employee Grid -->
+        <div id="employee-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden text-center py-16">
+            <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <p class="text-sm font-medium text-slate-500">No employees match your search.</p>
+            <p class="text-xs text-slate-400 mt-1">Try a different name or clear the search.</p>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <p class="text-xs text-slate-400">&copy; 2026 Coronacion Services</p>
+            <a href="login.html" class="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors min-h-[44px] flex items-center">Sign out</a>
+        </div>
+    </footer>
+
+    <script src="/assets/js/punch-employee-list.js"></script>
+</body>
+</html>

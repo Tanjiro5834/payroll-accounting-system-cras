@@ -1,0 +1,173 @@
+<!-- audit-log.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Audit Trail — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] } } } };
+    </script>
+</head>
+<body class="font-sans bg-slate-50 text-slate-900 min-h-screen">
+
+    <header class="lg:hidden sticky top-0 z-30 bg-slate-900 text-white shadow-sm">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                </div>
+                <div><p class="text-sm font-bold tracking-tight leading-tight">Coronacion</p><p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Admin</p></div>
+            </div>
+            <button id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" class="flex items-center justify-center w-11 h-11 -mr-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                <svg id="icon-menu" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                <svg id="icon-close" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="drawer-overlay" class="lg:hidden fixed inset-0 bg-slate-900/60 z-40 opacity-0 pointer-events-none transition-opacity duration-200"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out flex flex-col" aria-label="Main navigation">
+        <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-800">
+            <div class="w-10 h-10 rounded-lg bg-emerald-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            </div>
+            <div class="min-w-0"><p class="text-sm font-bold tracking-tight text-white leading-tight">Coronacion</p><p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Timekeeping System</p></div>
+        </div>
+        <div class="px-5 py-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center flex-shrink-0"><span class="text-white font-bold text-sm">RD</span></div>
+                <div class="min-w-0"><p class="text-sm font-semibold text-white truncate">Roberto Coronacion</p><p class="text-xs text-slate-400 truncate">Owner / Admin</p></div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-3 py-4">
+            <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Main</p>
+            <ul class="space-y-0.5 mb-5">
+                <li><a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+                    Dashboard
+                </a></li>
+                <li><a href="punch-employee-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    Clock In / Out
+                </a></li>
+                <li><a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+                    My Time Logs
+                </a></li>
+            </ul>
+            <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Administration</p>
+            <ul class="space-y-0.5">
+                <li><a href="employees.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
+                    Employees
+                </a></li>
+                <li><a href="payroll.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" /></svg>
+                    Payroll
+                </a></li>
+                <li><a href="thirteenth-month.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    13th Month Report
+                </a></li>
+                <li><a href="audit-log.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-700 text-white font-medium text-sm min-h-[44px]">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+                    Audit Trail
+                </a></li>
+                <li><a href="location-log.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
+                    Location Logs
+                </a></li>
+                <li><a href="flagged-punches.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" /></svg>
+                    Flagged Punches
+                </a></li>
+            </ul>
+        </nav>
+        <div class="border-t border-slate-800 p-3">
+            <a href="login.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
+                Sign out
+            </a>
+        </div>
+    </aside>
+
+    <main class="lg:pl-72">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+
+            <div class="mb-6 lg:mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Audit Trail</h1>
+                <p class="text-sm text-slate-500 mt-1">Chronological log of user actions and system events.</p>
+            </div>
+
+            <!-- Filters -->
+            <section class="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="filter-employee" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Employee</label>
+                        <select id="filter-employee" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-h-[44px]">
+                            <option value="">All employees</option>
+                            <option>Juan Dela Cruz</option>
+                            <option>Maria Santos</option>
+                            <option>Pedro Reyes</option>
+                            <option>Ana Villanueva</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-start" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date From</label>
+                        <input type="date" id="filter-start" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-h-[44px]">
+                    </div>
+                    <div>
+                        <label for="filter-end" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date To</label>
+                        <input type="date" id="filter-end" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-h-[44px]">
+                    </div>
+                    <div>
+                        <label for="filter-action" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Action Type</label>
+                        <select id="filter-action" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-h-[44px]">
+                            <option value="">All actions</option>
+                            <option>PUNCH</option>
+                            <option>LOGIN</option>
+                            <option>LOGOUT</option>
+                            <option>EDIT</option>
+                            <option>PAYROLL_VIEW</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Table -->
+            <section class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50">
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 w-8"></th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Timestamp</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Employee</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Action</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Details</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+                <div class="px-4 sm:px-6 py-4 border-t border-slate-200 text-center">
+                    <button id="load-more" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors min-h-[44px]">
+                        Load more
+                    </button>
+                    <p id="loaded-count" class="text-xs text-slate-400 mt-2"></p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="/assets/js/audit-log.js"></script>
+</body>
+</html>

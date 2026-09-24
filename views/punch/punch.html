@@ -1,0 +1,105 @@
+<!-- punch.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Clock In / Out — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="font-sans bg-slate-50 text-slate-900 min-h-screen">
+
+    <!-- Top Bar -->
+    <header class="bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+            <a href="punch-employee-list.html" aria-label="Back to employee list" class="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors flex-shrink-0">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </a>
+            <div class="flex items-center gap-3 min-w-0">
+                <div id="header-avatar" class="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <span id="header-initials" class="text-white font-bold text-sm">--</span>
+                </div>
+                <div class="min-w-0">
+                    <p id="header-name" class="text-sm font-bold tracking-tight text-slate-900 truncate">Loading…</p>
+                    <p id="header-role" class="text-xs text-slate-500 truncate">—</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-32">
+
+        <!-- Live Clock -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 text-center mb-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Current Time</p>
+            <p id="live-clock" class="font-mono text-4xl sm:text-5xl font-semibold text-slate-900 tabular-nums leading-none">--:--:--</p>
+            <p id="live-date" class="text-sm text-slate-500 mt-2">Loading…</p>
+        </div>
+
+        <!-- Punch Status Row -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4 mb-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Today's Punches</p>
+            <div id="status-row" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Punch Buttons -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-5 mb-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Record Punch</p>
+            <form id="punch-form" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <!-- Hidden fields -->
+                <input type="hidden" name="employee_id" id="employee_id" value="">
+                <input type="hidden" name="gps_lat" id="gps_lat" value="">
+                <input type="hidden" name="gps_lng" id="gps_lng" value="">
+                <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="">
+                <input type="hidden" name="device_fingerprint" id="device_fingerprint" value="">
+                <input type="hidden" name="punch_type" id="punch_type" value="">
+
+                <!-- Buttons injected by JS -->
+            </form>
+        </div>
+
+        <!-- GPS Status (subtle) -->
+        <div class="flex items-center justify-center gap-2 text-xs text-slate-400">
+            <span id="gps-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+            <span id="gps-label">Acquiring location…</span>
+        </div>
+
+    </main>
+
+    <!-- Sticky Bottom Bar -->
+    <div class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)] z-20">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 py-3">
+            <a href="punch-employee-list.html" class="flex items-center justify-center gap-2 w-full min-h-[44px] py-3 px-4 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                Back to employee list
+            </a>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-24 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite"></div>
+
+    <script src="/assets/js/punch.js"></script>
+</body>
+</html>
