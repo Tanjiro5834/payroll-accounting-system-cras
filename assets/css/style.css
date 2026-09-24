@@ -1,0 +1,126 @@
+/* assets/css/style.css */
+/* Custom CSS for Coronacion Timekeeping.
+   Only animations, reduced-motion fallbacks, scrollbars, and focus rings.
+   All layout and color comes from Tailwind utilities + theme.js tokens. */
+
+:root {
+    --logo-size: 2.5rem;
+    --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- Brand logo placeholder ---------- */
+.brand-logo {
+    width: var(--logo-size);
+    height: var(--logo-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    border: 2px dashed #94A3B8;
+    color: #64748B;
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.625rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: #F8FAFC;
+    flex-shrink: 0;
+}
+
+/* ---------- Page enter / stagger helpers ---------- */
+.page-enter {
+    animation: fade-up 400ms var(--ease-smooth) both;
+}
+
+.stagger > * {
+    animation: fade-up 400ms var(--ease-smooth) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+
+/* ---------- Skeleton shimmer ---------- */
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    background: #E2E8F0;
+    border-radius: 0.5rem;
+}
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    animation: shimmer 1.6s linear infinite;
+}
+
+/* ---------- Toast ---------- */
+.toast {
+    animation: toast-in 260ms var(--ease-smooth) both;
+}
+.toast.is-leaving {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 200ms var(--ease-smooth), transform 200ms var(--ease-smooth);
+}
+
+/* ---------- Icon cross-fade (password toggle, in/out state) ---------- */
+.icon-crossfade {
+    transition: opacity 180ms var(--ease-smooth);
+}
+
+/* ---------- Focus ring (frost cyan) ---------- */
+:focus-visible {
+    outline: 2px solid #22D3EE;
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+}
+
+/* ---------- Scrollbar ---------- */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 transparent;
+}
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background-color: #64748B;
+}
+
+/* ---------- Safe-area helpers ---------- */
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+    padding-top: env(safe-area-inset-top);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    .page-enter,
+    .stagger > * {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+}
