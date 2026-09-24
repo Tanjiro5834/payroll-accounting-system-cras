@@ -35,7 +35,7 @@ $routes = [
     'thirteenth-month' => ['thirteenth-month/thirteenth-month', ThirteenthMonthController::class, 'admin',    ['index', 'computeAll', 'show', 'approve', 'markAsPaid', 'export']],
     'audit-log'        => ['reports/audit-log',                 ReportController::class,          'admin',    ['auditLog', 'auditLogExport']],
     'location-log'     => ['reports/location-log',              ReportController::class,          'admin',    ['locationLog', 'locationLogExport']],
-    'punch-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
+    'punch-employee-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
     'punch'            => ['punch/punch',                       PunchController::class,           'employee', ['store', 'todayStatus', 'history']],
 ];
 

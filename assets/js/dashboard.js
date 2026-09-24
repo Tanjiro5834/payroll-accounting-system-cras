@@ -238,7 +238,7 @@
       " · " +
       escapeHtml(item.time) +
       "</p>" +
-      '<a href="flagged-punches.html" class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors">Review &rarr;</a>' +
+      '<a href="#" class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors">Review &rarr;</a>' +
       "</div>" +
       "</div>";
     flaggedList.appendChild(li);

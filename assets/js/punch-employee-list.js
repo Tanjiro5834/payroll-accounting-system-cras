@@ -77,7 +77,7 @@
 
     list.forEach(function (emp) {
       const card = document.createElement("a");
-      card.href = "punch.html?employee_id=" + encodeURIComponent(emp.id);
+      card.href = "index.php?page=punch&employee_id=" + encodeURIComponent(emp.id);
       card.className =
         "group bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all p-4 flex flex-col items-center text-center min-h-[44px]";
 
