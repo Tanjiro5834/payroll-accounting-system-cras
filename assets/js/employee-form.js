@@ -235,14 +235,14 @@
       .then(function () {
         showToast("Employee saved successfully.", "success");
         setTimeout(function () {
-          window.location.href = "employees.html";
+          window.location.href = "index.php?page=employees";
         }, 800);
       })
       .catch(function () {
         // Mock success for standalone preview
         showToast("Employee saved successfully.", "success");
         setTimeout(function () {
-          window.location.href = "employees.html";
+          window.location.href = "index.php?page=employees";
         }, 800);
       });
   });
