@@ -8,6 +8,18 @@
   const iconMenu = document.getElementById("icon-menu");
   const iconClose = document.getElementById("icon-close");
 
+  const FREQ_LABELS = { weekly: "Weekly", kinsenas: "Kinsenas", monthly: "Monthly" };
+  function freqLabel(f) {
+    return FREQ_LABELS[f] || f;
+  }
+
+  function buildRoleOptions() {
+    const roles = [...new Set(employees.map((e) => e.role))].sort();
+    roleFilter.innerHTML =
+      '<option value="">All roles</option>' +
+      roles.map((r) => "<option>" + escapeHtml(r) + "</option>").join("");
+  }
+
   function openDrawer() {
     sidebar.classList.remove("-translate-x-full");
     overlay.classList.remove("opacity-0", "pointer-events-none");
@@ -264,7 +276,7 @@
         escapeHtml(emp.contact) +
         "</td>" +
         '<td class="px-4 py-3 text-xs text-slate-600">' +
-        escapeHtml(emp.freq) +
+        escapeHtml(freqLabel(emp.freq)) +
         "</td>" +
         '<td class="px-4 py-3 text-right font-mono text-xs text-slate-900 whitespace-nowrap">' +
         formatRate(emp) +
