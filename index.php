@@ -1,98 +1,76 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '1');   // dev only — set to '0' in production
+error_reporting(E_ALL);
 session_start();
-define('BASE_PATH', __DIR__);
 
-// ---------- Autoloader ----------
+use App\Controller\AuthController;
+use App\Controller\DashboardController;
+use App\Controller\EmployeeController;
+use App\Controller\PayrollController;
+use App\Controller\PunchController;
+use App\Controller\ReportController;
+use App\Controller\ThirteenthMonthController;
+use App\Middleware\AuthMiddleware;
+use App\Middleware\CsrfMiddleware;
+use App\Middleware\RoleMiddleware;
+
+// ─── AUTOLOAD: App\Controller\Foo → app/controller/Foo.php ───
 spl_autoload_register(function (string $class): void {
-    $class = basename(str_replace('\\', '/', $class));
-    foreach (['core', 'config', 'controllers', 'services', 'repositories', 'models'] as $dir) {
-        $file = BASE_PATH . "/$dir/$class.php";
-        if (is_file($file)) { require_once $file; return; }
-    }
+    $parts = explode('\\', $class);
+    $name  = array_pop($parts);
+    $dir   = strtolower($parts[1] ?? 'config');   // no namespace (Database) → app/config
+    $file  = __DIR__ . "/app/$dir/$name.php";
+    if (is_file($file)) require_once $file;
 });
 
-// ---------- Helpers ----------
-function json(array $data, int $code = 200): never {
-    http_response_code($code);
-    header('Content-Type: application/json');
-    echo json_encode($data);
-    exit;
-}
-
-function redirect(string $to): never {
-    header("Location: $to");
-    exit;
-}
-
-function render(string $view): never {
-    $file = BASE_PATH . "/views/$view.html";
-    if (!is_file($file)) { http_response_code(404); exit('View not found'); }
-    readfile($file);
-    exit;
-}
-
-// ---------- Request ----------
-$method = $_SERVER['REQUEST_METHOD'];
-$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');      // /payroll-accounting-system-cras
-$path   = '/' . trim(substr($uri, strlen($base)), '/');
-$isApi  = str_starts_with($path, '/api/');
-
-// ---------- Routes: [METHOD, pattern, handler, requiresAuth] ----------
+// ─── ROUTES: page => [view, controller, role, allowed actions] ───
 $routes = [
-    // Pages
-    ['GET', '/',              'view:auth/login',                     false],
-    ['GET', '/login',         'view:auth/login',                     false],
-    ['GET', '/dashboard',     'view:dashboard/dashboard',            true],
-    ['GET', '/employees',     'view:employees/employees',            true],
-    ['GET', '/payroll',       'view:payroll/payroll',                true],
-    ['GET', '/punch',         'view:punch/punch',                    true],
-    ['GET', '/reports',       'view:reports/reports',                true],
-    ['GET', '/thirteenth-month', 'view:thirteenth-month/thirteenth-month', true],
-
-    // API
-    ['POST',   '/api/login',          [AuthController::class, 'login'],       false],
-    ['POST',   '/api/logout',         [AuthController::class, 'logout'],      true],
-    ['GET',    '/api/employees',      [EmployeeController::class, 'index'],   true],
-    ['GET',    '/api/employees/{id}', [EmployeeController::class, 'show'],    true],
-    ['POST',   '/api/employees',      [EmployeeController::class, 'store'],   true],
-    ['PUT',    '/api/employees/{id}', [EmployeeController::class, 'update'],  true],
-    ['DELETE', '/api/employees/{id}', [EmployeeController::class, 'destroy'], true],
-    ['POST',   '/api/punch',          [TimePunchController::class, 'punch'],  true],
+    'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
+    'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'recentActivity']],
+    'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto']],
+    'employee-form'    => ['employees/employee-form',           EmployeeController::class,        'admin',    ['show', 'store', 'update']],
+    'payroll'          => ['payroll/payroll',                   PayrollController::class,         'admin',    ['index', 'compute', 'show', 'history', 'export', 'markAsPaid']],
+    'thirteenth-month' => ['thirteenth-month/thirteenth-month', ThirteenthMonthController::class, 'admin',    ['index', 'computeAll', 'show', 'approve', 'markAsPaid', 'export']],
+    'audit-log'        => ['reports/audit-log',                 ReportController::class,          'admin',    ['auditLog', 'auditLogExport']],
+    'location-log'     => ['reports/location-log',              ReportController::class,          'admin',    ['locationLog', 'locationLogExport']],
+    'punch-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
+    'punch'            => ['punch/punch',                       PunchController::class,           'employee', ['store', 'todayStatus', 'history']],
 ];
 
-// ---------- Dispatch ----------
-$allowed = [];
+// ─── ROUTING ───
+$page   = $_GET['page']   ?? 'login';
+$action = $_GET['action'] ?? null;
+$id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
 
-try {
-    foreach ($routes as [$verb, $pattern, $handler, $auth]) {
-        $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $pattern) . '$#';
-        if (!preg_match($regex, $path, $m)) continue;
-
-        if ($verb !== $method) { $allowed[] = $verb; continue; }
-
-        if ($auth && empty($_SESSION['user_id'])) {
-            $isApi ? json(['error' => 'Unauthorized'], 401) : redirect("$base/login");
-        }
-
-        if (is_string($handler)) render(substr($handler, 5));   // "view:..."
-
-        $params = array_values(array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY));
-        [$class, $action] = $handler;
-        (new $class())->$action(...$params);
-        exit;
-    }
-
-    if ($allowed) {
-        header('Allow: ' . implode(', ', array_unique($allowed)));
-        json(['error' => 'Method Not Allowed'], 405);
-    }
-
-    $isApi ? json(['error' => 'Not Found'], 404) : (http_response_code(404) and exit('404 Not Found'));
-
-} catch (Throwable $e) {
-    error_log($e, 3, BASE_PATH . '/storage/logs/error.log');
-    $isApi ? json(['error' => 'Server error'], 500) : (http_response_code(500) and exit('Server error'));
+if (!isset($routes[$page])) {
+    http_response_code(404);
+    exit('404 Not Found');
 }
+
+[$view, $controller, $role, $actions] = $routes[$page];
+
+if ($role !== null) {
+    (new AuthMiddleware())->handle();
+    (new RoleMiddleware())->{'require' . ucfirst($role)}();   // requireAdmin() / requireEmployee()
+}
+
+// No action → serve the page
+if ($action === null) {
+    readfile(__DIR__ . "/views/$view.html");
+    exit;
+}
+
+// Action → call controller: ?page=employees&action=show&id=5 → EmployeeController::show(5)
+if (!in_array($action, $actions, true)) {
+    http_response_code(404);
+    header('Content-Type: application/json');
+    exit(json_encode(['error' => 'Unknown action']));
+}
+
+(new CsrfMiddleware())->handle();   // no-op on GET
+
+$id === null
+    ? (new $controller())->$action()
+    : (new $controller())->$action($id);
