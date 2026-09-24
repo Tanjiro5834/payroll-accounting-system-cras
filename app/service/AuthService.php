@@ -1,42 +1,29 @@
 <?php
 namespace App\Service;
 
+use App\Middleware\AuthMiddleware;
+use App\Repository\UserRepository;
+
 class AuthService{
-    private EmployeeRepository $repository;
+    private UserRepository $users;
 
     public function __construct(){
-        $this->repository = new EmployeeRepository();
+        $this->users = new UserRepository();
     }
 
-    public function login(array $data) : bool {
-        $username = trim($data['username'] ?? '');
-        $password = $data['password'] ?? '';
+    public function login(string $username, string $password): ?array{
+        $username = trim($username);
+        if ($username === '' || $password === '') return null;
 
-        if($username === '' && $password === ''){
-            throw new InvalidArgumentException('Please enter your username and password.');
+        $user = $this->users->findByUsername($username);
+        if (!$user || !(int) $user['is_active'] || !password_verify($password, $user['password_hash'])) {
+            return null;
         }
 
-        $user = $this->repository->findByUsername($username);
-        if(!$user || !password_verify($password, $user['password_hash'])) return false;
-
-        if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
-            $newHash = password_hash($password, PASSWORD_DEFAULT);
-            $this->repository->updatePasswordHash((int) $user['id'], $newHash);
-        }
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(true);
-        }
-
-        $_SESSION['user_id'] = (int) $user['id'];
-        $_SESSION['username']  = $user['username'] ?? $username;
-        $_SESSION['role'] = $user['role'];
-        $_SESSION['logged_in'] = true;
-        $_SESSION['login_at'] = time();
-
-        return true;
+        AuthMiddleware::login($user);
+        $this->users->updateLastLogin((int) $user['id']);
+        return $user;
     }
-
     public function logout() : void {
         $_SESSION = [];
 

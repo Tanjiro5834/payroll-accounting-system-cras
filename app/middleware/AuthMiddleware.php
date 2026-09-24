@@ -76,7 +76,7 @@ class AuthMiddleware
             header('Content-Type: application/json');
             echo json_encode(['error' => 'Unauthenticated']);
         } else {
-            header('Location: /login');
+            header('Location: index.php?page=login'); 
         }
         exit;
     }

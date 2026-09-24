@@ -11,7 +11,7 @@ class Database {
         if ($isLocal) {
             // ---- LOCAL (development) ----
             $host    = 'localhost';
-            $db      = 'coronacion_svc_local';
+            $db      = 'payroll_accounting_system';
             $user    = 'root';
             $pass    = '';
             $charset = 'utf8mb4';

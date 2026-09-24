@@ -69,7 +69,7 @@ if (!in_array($action, $actions, true)) {
     exit(json_encode(['error' => 'Unknown action']));
 }
 
-(new CsrfMiddleware())->handle();   // no-op on GET
+if($page !== 'login') (new CsrfMiddleware())->handle();   // no-op on GET
 
 $id === null
     ? (new $controller())->$action()
