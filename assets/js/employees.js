@@ -72,7 +72,7 @@
       .toUpperCase();
   }
   function formatRate(emp) {
-    if (emp.freq === "Monthly")
+    if (emp.freq === "monthly")
       return (
         "\u20B1" +
         emp.monthly.toLocaleString("en-PH", {
@@ -84,129 +84,8 @@
   }
 
   /* ---------- Data (mock — replaced by PHP) ---------- */
-  const employees = [
-    {
-      id: 1,
-      name: "Juan Dela Cruz",
-      role: "Technician",
-      contact: "0917 555 0101",
-      freq: "Weekly",
-      hourly: 120,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Maria Santos",
-      role: "Admin",
-      contact: "0917 555 0102",
-      freq: "Monthly",
-      hourly: 0,
-      monthly: 32000,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Pedro Reyes",
-      role: "Technician",
-      contact: "0917 555 0103",
-      freq: "Kinsenas",
-      hourly: 130,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "Ana Villanueva",
-      role: "Secretary",
-      contact: "0917 555 0104",
-      freq: "Monthly",
-      hourly: 0,
-      monthly: 25000,
-      status: "Active",
-    },
-    {
-      id: 5,
-      name: "Carlos Mendoza",
-      role: "Driver",
-      contact: "0917 555 0105",
-      freq: "Weekly",
-      hourly: 100,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 6,
-      name: "Rosa Bautista",
-      role: "Helper",
-      contact: "0917 555 0106",
-      freq: "Weekly",
-      hourly: 90,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 7,
-      name: "Miguel Torres",
-      role: "Construction Worker",
-      contact: "0917 555 0107",
-      freq: "Kinsenas",
-      hourly: 110,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 8,
-      name: "Elena Garcia",
-      role: "Developer",
-      contact: "0917 555 0108",
-      freq: "Monthly",
-      hourly: 0,
-      monthly: 55000,
-      status: "Active",
-    },
-    {
-      id: 9,
-      name: "Ramon Flores",
-      role: "Technician",
-      contact: "0917 555 0109",
-      freq: "Weekly",
-      hourly: 120,
-      monthly: 0,
-      status: "Inactive",
-    },
-    {
-      id: 10,
-      name: "Luz Ramos",
-      role: "Admin",
-      contact: "0917 555 0110",
-      freq: "Monthly",
-      hourly: 0,
-      monthly: 30000,
-      status: "Active",
-    },
-    {
-      id: 11,
-      name: "Jose Aquino",
-      role: "Technician",
-      contact: "0917 555 0111",
-      freq: "Weekly",
-      hourly: 125,
-      monthly: 0,
-      status: "Active",
-    },
-    {
-      id: 12,
-      name: "Carmen Lim",
-      role: "Secretary",
-      contact: "0917 555 0112",
-      freq: "Monthly",
-      hourly: 0,
-      monthly: 26000,
-      status: "Inactive",
-    },
-  ];
-
+  
+  let employees = [];
   let filtered = employees.slice();
   let sortKey = null;
   let sortDir = "asc";
@@ -234,6 +113,9 @@
 
   function avatarHtml(emp, size) {
     const cls = size === "lg" ? "w-10 h-10" : "w-9 h-9";
+    if (emp.photo) {
+      return '<img src="' + escapeHtml(emp.photo) + '" alt="" class="' + cls + ' rounded-full object-cover flex-shrink-0">';
+    }
     return (
       '<div class="' +
       cls +
@@ -273,7 +155,7 @@
         escapeHtml(emp.role) +
         "</span></td>" +
         '<td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">' +
-        escapeHtml(emp.contact) +
+        escapeHtml(emp.hired || "—") +
         "</td>" +
         '<td class="px-4 py-3 text-xs text-slate-600">' +
         escapeHtml(freqLabel(emp.freq)) +
@@ -398,6 +280,16 @@
     });
   });
 
-  /* ---------- Init ---------- */
-  applyFilters();
+  async function load() {
+    try {
+      employees = await api.get("employees", "index");
+      buildRoleOptions();
+      applyFilters();
+    } catch (error) {
+      emptyState.classList.remove("hidden");
+      emptyState.textContent = "Couldn't load employees: " + error.message;
+    }
+  }
+
+  load();
 })();

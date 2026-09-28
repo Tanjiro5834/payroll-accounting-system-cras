@@ -64,72 +64,48 @@
   }
 
   /* ---------- Edit Mode Prefill (mock — replaced by PHP) ---------- */
+    /* ---------- Edit mode ---------- */
   const editId = getParam("id");
-  const MOCK_DATA = {
-    1: {
-      full_name: "Juan Dela Cruz",
-      role: "Technician",
-      date_hired: "2023-01-15",
-      sss: "34-1234567-8",
-      philhealth: "12-345678901-2",
-      pagibig: "1234-5678-9012",
-      tin: "123-456-789-000",
-      pay_frequency: "weekly",
-      hourly_rate: 120,
-      monthly_rate: 0,
-      active: true,
-    },
-    2: {
-      full_name: "Maria Santos",
-      role: "Admin",
-      date_hired: "2022-06-01",
-      sss: "34-2345678-9",
-      philhealth: "12-456789012-3",
-      pagibig: "2345-6789-0123",
-      tin: "234-567-890-000",
-      pay_frequency: "monthly",
-      hourly_rate: 0,
-      monthly_rate: 32000,
-      active: true,
-    },
-    3: {
-      full_name: "Pedro Reyes",
-      role: "Technician",
-      date_hired: "2023-03-20",
-      sss: "34-3456789-0",
-      philhealth: "12-567890123-4",
-      pagibig: "3456-7890-1234",
-      tin: "345-678-901-000",
-      pay_frequency: "kinsenas",
-      hourly_rate: 130,
-      monthly_rate: 0,
-      active: true,
-    },
-  };
+  let hasStoredPhoto = false;
+  let removeStoredPhoto = false;
 
-  if (editId && MOCK_DATA[editId]) {
-    const d = MOCK_DATA[editId];
+  function setAvatarPhoto(url) {
+    avatarPreview.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Employee photo" class="w-full h-full object-cover">';
+    removePhotoBtn.classList.remove("hidden");
+  }
+
+  function fillForm(emp) {
     document.getElementById("page-title").textContent = "Edit Employee";
-    document.getElementById("page-subtitle").textContent =
-      "Update employee record and pay settings.";
-    document.title = "Edit " + d.full_name + " — Coronacion Timekeeping";
+    document.getElementById("page-subtitle").textContent = "Update employee record and pay settings.";
+    document.title = "Edit " + emp.full_name + " — Coronacion Timekeeping";
 
-    document.getElementById("full_name").value = d.full_name;
-    document.getElementById("role").value = d.role;
-    document.getElementById("date_hired").value = d.date_hired;
-    document.getElementById("sss").value = d.sss;
-    document.getElementById("philhealth").value = d.philhealth;
-    document.getElementById("pagibig").value = d.pagibig;
-    document.getElementById("tin").value = d.tin;
-    document.getElementById("pay_frequency").value = d.pay_frequency;
-    document.getElementById("hourly_rate").value = d.hourly_rate || "";
-    document.getElementById("monthly_rate").value = d.monthly_rate || "";
-    document.getElementById("active").checked = d.active;
+    document.getElementById("full_name").value = emp.full_name;
+    document.getElementById("role").value = emp.role;
+    document.getElementById("date_hired").value = emp.date_hired || "";
+    document.getElementById("sss").value = emp.sss_number || "";
+    document.getElementById("philhealth").value = emp.philhealth_number || "";
+    document.getElementById("pagibig").value = emp.pagibig_number || "";
+    document.getElementById("tin").value = emp.tin_number || "";
+    document.getElementById("pay_frequency").value = emp.pay_frequency;
+    document.getElementById("hourly_rate").value = emp.hourly_rate || "";
+    document.getElementById("monthly_rate").value = emp.monthly_rate || "";
+    document.getElementById("active").checked = Boolean(emp.is_active);
+    updateRateVisibility();
 
-    // Update avatar initials
-    document.getElementById("avatar-initials").textContent = getInitials(
-      d.full_name,
-    );
+    if (emp.profile_photo_url) {
+      hasStoredPhoto = true;
+      setAvatarPhoto(emp.profile_photo_url);
+    } else {
+      document.getElementById("avatar-initials").textContent = getInitials(emp.full_name);
+    }
+  }
+
+  async function loadEmployee() {
+    try {
+      fillForm(await api.get("employees", "show", { id: editId }));
+    } catch (error) {
+      showToast("Couldn't load employee: " + error.message, "error");
+    }
   }
 
   /* ---------- Avatar Preview ---------- */
@@ -137,13 +113,14 @@
   const avatarPreview = document.getElementById("avatar-preview");
   const avatarInitials = document.getElementById("avatar-initials");
   const removePhotoBtn = document.getElementById("remove-photo");
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
   photoInput.addEventListener("change", function () {
     const file = photoInput.files && photoInput.files[0];
     if (!file) return;
 
     // Validate size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > MAX_PHOTO_BYTES) {
       showToast("Photo is larger than 2MB.", "error");
       photoInput.value = "";
       return;
@@ -162,6 +139,7 @@
 
   removePhotoBtn.addEventListener("click", function () {
     photoInput.value = "";
+    removeStoredPhoto = hasStoredPhoto;
     const name = document.getElementById("full_name").value.trim();
     avatarPreview.innerHTML =
       '<span id="avatar-initials" class="text-white font-bold text-2xl">' +
@@ -221,29 +199,68 @@
     }, 3000);
   }
 
-  /* ---------- Form Submit ---------- */
+  //form submit
   const form = document.getElementById("employee-form");
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
+  const saveBtn = document.getElementById("save-btn");
 
-    const formData = new FormData(form);
-    fetch(form.action, { method: "POST", body: formData })
-      .then(function (res) {
-        if (!res.ok) throw new Error("Server responded " + res.status);
-        return res.json();
-      })
-      .then(function () {
-        showToast("Employee saved successfully.", "success");
-        setTimeout(function () {
-          window.location.href = "index.php?page=employees";
-        }, 800);
-      })
-      .catch(function () {
-        // Mock success for standalone preview
-        showToast("Employee saved successfully.", "success");
-        setTimeout(function () {
-          window.location.href = "index.php?page=employees";
-        }, 800);
-      });
+  // Only the rate field that's visible for the chosen frequency is kept; the hidden one is cleared.
+  function payload() {
+    const value = function (id) { return document.getElementById(id).value.trim(); };
+    const hourlyShown = !hourlyWrap.classList.contains("hidden");
+    const monthlyShown = !monthlyWrap.classList.contains("hidden");
+    return {
+      full_name: value("full_name"),
+      role: value("role"),
+      date_hired: value("date_hired"),
+      sss_number: value("sss"),
+      philhealth_number: value("philhealth"),
+      pagibig_number: value("pagibig"),
+      tin_number: value("tin"),
+      pay_frequency: value("pay_frequency"),
+      hourly_rate: hourlyShown ? value("hourly_rate") : "",
+      monthly_rate: monthlyShown ? value("monthly_rate") : "",
+      is_active: document.getElementById("active").checked,
+    };
+  }
+
+  async function savePhoto(id) {
+    const file = photoInput.files && photoInput.files[0];
+    if (file) {
+      const body = new FormData();
+      body.append("photo", file);
+      await api.post("employees", "uploadPhoto", { id: id, body: body });
+    } else if (removeStoredPhoto) {
+      await api.post("employees", "removePhoto", { id: id });
+    }
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    saveBtn.disabled = true;
+
+    try {
+      const saved = editId
+        ? await api.post("employees", "update", { id: editId, body: payload() })
+        : await api.post("employees", "store", { body: payload() });
+
+      try {
+        await savePhoto(saved.id);
+      } catch (photoError) {
+        // The record is saved; only the photo failed. Say so instead of hiding it.
+        showToast("Saved, but the photo failed: " + photoError.message, "error");
+        saveBtn.disabled = false;
+        return;
+      }
+
+      showToast("Employee saved.", "success");
+      setTimeout(function () {
+        window.location.href = "index.php?page=employees";
+      }, 800);
+    } catch (error) {
+      showToast(error.message, "error");
+      saveBtn.disabled = false;
+    }
   });
+
+  if (editId) loadEmployee();
 })();

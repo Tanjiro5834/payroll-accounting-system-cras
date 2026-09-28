@@ -41,6 +41,7 @@ $routes = [
     'location-log'     => ['reports/location-log',              ReportController::class,          'admin',    ['locationLog', 'locationLogExport']],
     'punch-employee-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
     'punch'            => ['punch/punch',                       PunchController::class,           'employee', ['store', 'todayStatus', 'history']],
+    'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto', 'removePhoto']],
 ];
 
 // ─── ROUTING ───

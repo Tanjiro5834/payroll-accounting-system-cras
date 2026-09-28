@@ -16,9 +16,10 @@ class EmployeeService {
     private const ALLOWED_PAY_FREQUENCIES = ['weekly', 'kinsenas', 'monthly'];
 
     private const MAX_NAME_LENGTH = 100;
+    private const MAX_ROLE_LENGTH = 50; 
     private const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
-    private const UPLOAD_SUBDIR = '/uploads/employees/';
+    private const UPLOAD_SUBDIR = 'uploads/employees/';
 
     private EmployeeRepository $repository;
 
@@ -44,12 +45,15 @@ class EmployeeService {
     }
 
     public function update(int $id, array $data): bool {
-        $this->requireEmployee($id);
+        $current = $this->requireEmployee($id)->toArray();
+        $merged = array_replace($current, $this->validateAndNormalize($data, true), ['id' => $id]);
 
-        $clean = $this->validateAndNormalize($data, true);
-        $clean['id'] = $id;
+        if (empty($merged['hourly_rate']) && empty($merged['monthly_rate'])) {
+            throw new InvalidArgumentException('Validation failed: Provide an hourly or a monthly rate.');
+        }
 
-        return $this->repository->update(Employee::fromArray($clean));
+        $this->repository->update(Employee::fromArray($merged));
+        return true; 
     }
 
     public function deactivate(int $id): bool {
@@ -75,16 +79,19 @@ class EmployeeService {
             throw new InvalidArgumentException($check['error'] ?? 'Invalid image upload.');
         }
 
-        $absoluteDir = $this->publicPath() . self::UPLOAD_SUBDIR;
-        $absolute    = FileHelper::upload($file, $absoluteDir, 'emp_' . $employeeId);
+        $absoluteDir = $this->projectRoot() . '/' . self::UPLOAD_SUBDIR;
+        $absolute = FileHelper::upload($file, $absoluteDir, 'emp_' . $employeeId);
 
         if ($absolute === null) {
             throw new DomainException('Failed to store the uploaded photo.');
         }
 
         $relative = self::UPLOAD_SUBDIR . basename($absolute);
-
+        $old = $employee->getProfilePhotoUrl();
         $this->replaceProfilePhoto($employee, $relative);
+        if ($old) {
+            FileHelper::delete($this->projectRoot() . '/' . $old);
+        }
 
         return $relative;
     }
@@ -97,7 +104,7 @@ class EmployeeService {
             return false;
         }
 
-        FileHelper::delete($this->publicPath() . $current);
+        FileHelper::delete($this->projectRoot() . '/' . $current);
 
         return $this->replaceProfilePhoto($employee, null);
     }
@@ -149,7 +156,7 @@ class EmployeeService {
             throw new InvalidArgumentException('Validation failed: ' . implode(', ', $errors));
         }
 
-        $clean = array_filter([
+        $clean = [
             'full_name'         => $fullName,
             'role'              => $role,
             'pay_frequency'     => $payFreq,
@@ -161,11 +168,12 @@ class EmployeeService {
             'pagibig_number'    => $ids['pagibig_number']    ?? null,
             'tin_number'        => $ids['tin_number']        ?? null,
             'profile_photo_url' => $photo,
-        ], fn($v) => $v !== null);
+        ];
 
-        if (array_key_exists('is_active', $data)) {
-            $clean['is_active'] = filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
-        }
+        // Keep only fields the caller sent: on update, an absent field stays as stored,
+        // while a field sent empty is cleared (NULL).
+        $sent = array_flip(array_keys($data));
+        $clean = $isUpdate ? array_intersect_key($clean, $sent) : array_filter($clean, fn($v) => $v !== null);
 
         return $clean;
     }
@@ -198,8 +206,9 @@ class EmployeeService {
             $errors['role'] = 'Role is required.';
             return null;
         }
-        if (!in_array($role, self::ALLOWED_ROLES, true)) {
-            $errors['role'] = 'Role must be one of: ' . implode(', ', self::ALLOWED_ROLES) . '.';
+
+        if (mb_strlen($role) > self::MAX_ROLE_LENGTH) {
+            $errors['role'] = 'Role must be ' . self::MAX_ROLE_LENGTH . ' characters or fewer.';
             return null;
         }
 
@@ -347,7 +356,7 @@ class EmployeeService {
         return $employee;
     }
 
-    private function publicPath(): string {
-        return dirname(__DIR__, 2) . '/public';
+    private function projectRoot(): string {
+        return dirname(__DIR__, 2);
     }
 }

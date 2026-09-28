@@ -5,8 +5,8 @@ use App\Entity\Employee;
 use PDO;
 
 class EmployeeRepository extends BaseRepository {
-    private const LIST_COLUMNS = 'id, full_name, role, profile_photo_url, pay_frequency,
-                                  date_hired, is_active, created_at, updated_at';
+    private const LIST_COLUMNS = 'id, full_name, role, profile_photo_url, hourly_rate, monthly_rate,
+                                  pay_frequency, date_hired, is_active, created_at, updated_at';
 
     private const FULL_COLUMNS = 'id, full_name, role, profile_photo_url, sss_number,
                                   philhealth_number, pagibig_number, tin_number,
