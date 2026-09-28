@@ -21,14 +21,6 @@
     return pad(h) + ":" + m + ":" + s + " " + ampm;
   }
 
-  function formatTimeShort(date) {
-    let h = date.getHours();
-    const m = pad(date.getMinutes());
-    const ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    return h + ":" + m + " " + ampm;
-  }
-
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = String(str);
@@ -48,33 +40,19 @@
   }
 
   /* ============================================================
-               Employee Data (mock — replaced by PHP)
+               Employee (from the server)
                ============================================================ */
-  const EMPLOYEES = {
-    1: { name: "Juan Dela Cruz", role: "Technician" },
-    2: { name: "Maria Santos", role: "Admin" },
-    3: { name: "Pedro Reyes", role: "Technician" },
-    4: { name: "Ana Villanueva", role: "Secretary" },
-    5: { name: "Carlos Mendoza", role: "Driver" },
-    6: { name: "Rosa Bautista", role: "Helper" },
-    7: { name: "Miguel Torres", role: "Construction Worker" },
-    8: { name: "Elena Garcia", role: "Developer" },
-    9: { name: "Ramon Flores", role: "Technician" },
-    10: { name: "Luz Ramos", role: "Admin" },
-    11: { name: "Jose Aquino", role: "Technician" },
-    12: { name: "Carmen Lim", role: "Secretary" },
-  };
+  // Staff arrive with ?employee_id=… from the kiosk list; an employee's own
+  // account can omit it and the server uses the logged-in employee.
+  const employeeId = getParam("employee_id");
 
-  const employeeId = getParam("employee_id") || "1";
-  const employee = EMPLOYEES[employeeId] || EMPLOYEES[1];
-
-  document.getElementById("employee_id").value = employeeId;
-  document.getElementById("header-name").textContent = employee.name;
-  document.getElementById("header-role").textContent = employee.role;
-  document.getElementById("header-initials").textContent = getInitials(
-    employee.name,
-  );
-  document.title = employee.name + " — Clock In / Out";
+  function renderEmployee(employee) {
+    document.getElementById("employee_id").value = employee.id;
+    document.getElementById("header-name").textContent = employee.name;
+    document.getElementById("header-role").textContent = employee.role;
+    document.getElementById("header-initials").textContent = getInitials(employee.name);
+    document.title = employee.name + " — Clock In / Out";
+  }
 
   /* ============================================================
                Live Clock
@@ -107,8 +85,8 @@
     { key: "ot_out", label: "OT OUT", dir: "out" },
   ];
 
-  // Mock state — will be fetched from backend
-  // Example: some punches already done
+  // Filled from the server by applyStatus(); value = display time or null.
+  let nextPunch = null;
   const punchState = {
     am_in: null,
     am_out: null,
@@ -254,65 +232,70 @@
   }
 
   /* ============================================================
+               Server status
+               ============================================================ */
+  // "2026-09-28 07:32:10" → "7:32 AM", parsed by hand so the browser's
+  // timezone can't shift the server's Manila time.
+  function serverTime(timestamp) {
+    const [h, m] = String(timestamp).split(" ")[1].split(":").map(Number);
+    return ((h % 12) || 12) + ":" + pad(m) + " " + (h < 12 ? "AM" : "PM");
+  }
+
+  function applyStatus(status) {
+    nextPunch = status.next_punch;
+    status.slots.forEach(function (slot) {
+      punchState[slot.punch_type.toLowerCase()] = slot.punched ? serverTime(slot.punch_time) : null;
+    });
+    renderStatusRow();
+    renderPunchButtons();
+  }
+
+  function labelOf(serverType) {
+    return serverType.replace("_", " ");
+  }
+
+  /* ============================================================
                Punch Handler
                ============================================================ */
-  function handlePunch(pt) {
-    // Guard: already done
+  function locationFields() {
+    return {
+      gps_lat: document.getElementById("gps_lat").value,
+      gps_lng: document.getElementById("gps_lng").value,
+      gps_accuracy: document.getElementById("gps_accuracy").value,
+      device_fingerprint: document.getElementById("device_fingerprint").value,
+    };
+  }
+
+  async function handlePunch(pt) {
     if (punchState[pt.key]) return;
 
-    // Guard: sequential order enforcement (client-side)
-    const order = ["am_in", "am_out", "pm_in", "pm_out", "ot_in", "ot_out"];
-    const idx = order.indexOf(pt.key);
-    if (idx > 0 && !punchState[order[idx - 1]]) {
+    // Friendly early message; the server enforces the same order regardless.
+    if (pt.key.toUpperCase() !== nextPunch) {
       showToast(
-        "Please complete " + PUNCH_TYPES[idx - 1].label + " first.",
+        nextPunch ? "Next punch is " + labelOf(nextPunch) + "." : "All punches for today are done.",
         "error",
       );
       return;
     }
 
     const btn = punchForm.querySelector('button[data-punch="' + pt.key + '"]');
-    if (btn) {
-      btn.disabled = true;
-      btn.classList.add("opacity-70", "cursor-wait");
-    }
+    btn.disabled = true;
+    btn.classList.add("opacity-70", "cursor-wait");
 
-    document.getElementById("punch_type").value = pt.key;
-
-    const formData = new FormData(punchForm);
-    // Use current time as fallback if server not available
-    const now = new Date();
-    const timeStr = formatTimeShort(now);
-
-    // -------------------------------------------------------
-    // ATTEMPT REAL API CALL
-    // Falls back to mock success if /api/punch is unreachable.
-    // -------------------------------------------------------
-    fetch("/api/punch", {
-      method: "POST",
-      body: formData,
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error("Server responded " + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        // Assume { success: true, time: "7:32 AM" }
-        punchState[pt.key] = data && data.time ? data.time : timeStr;
-        renderStatusRow();
-        renderPunchButtons();
-        showToast(
-          pt.label + " recorded — " + punchState[pt.key] + " \u2705",
-          "success",
-        );
-      })
-      .catch(function () {
-        // Mock success fallback for standalone preview
-        punchState[pt.key] = timeStr;
-        renderStatusRow();
-        renderPunchButtons();
-        showToast(pt.label + " recorded — " + timeStr + " \u2705", "success");
+    try {
+      const status = await api.post("punch", "store", {
+        body: Object.assign(
+          { employee_id: document.getElementById("employee_id").value, punch_type: pt.key.toUpperCase() },
+          locationFields(),
+        ),
       });
+      applyStatus(status);
+      showToast(pt.label + " recorded — " + punchState[pt.key] + " \u2705", "success");
+    } catch (error) {
+      // Nothing was saved: re-enable the button and say why.
+      renderPunchButtons();
+      showToast(error.message, "error");
+    }
   }
 
   /* ============================================================
@@ -375,7 +358,18 @@
   /* ============================================================
                Init
                ============================================================ */
+  async function load() {
+    try {
+      const status = await api.get("punch", "todayStatus", employeeId ? { id: employeeId } : {});
+      renderEmployee(status.employee);
+      applyStatus(status);
+    } catch (error) {
+      document.getElementById("header-name").textContent = "Couldn't load";
+      showToast(error.message, "error");
+    }
+  }
+
   renderStatusRow();
-  renderPunchButtons();
+  load();
   captureGPS();
 })();

@@ -138,7 +138,7 @@ class TimePunchService {
                 'punched'            => $punch !== null,
                 'punch_time'         => $punch?->getPunchTime(),
                 'punch_time_display' => $punch ? DateTimeHelper::formatLong($punch->getPunchTime()) : null,
-                'is_flagged'         => $punch?->isFlagged() ?? false,
+                'is_flagged'         => (bool) $punch?->getIsFlagged(),
                 'flag_reason'        => $punch?->getFlagReason(),
                 'is_next'            => $type === $next,
             ];
@@ -259,7 +259,7 @@ class TimePunchService {
             'punch_time'         => $punch->getPunchTime(),
             'punch_time_display' => DateTimeHelper::formatLong((string) $punch->getPunchTime()),
             'ip_address'         => $punch->getIpAddress(),
-            'is_flagged'         => $punch->isFlagged(),
+            'is_flagged'         => (bool) $punch->getIsFlagged(),
             'flag_reason'        => $punch->getFlagReason(),
         ];
     }

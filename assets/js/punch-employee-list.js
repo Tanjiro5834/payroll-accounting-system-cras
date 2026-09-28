@@ -25,21 +25,7 @@
   updateClock();
   setInterval(updateClock, 1000);
 
-  /* ---------- Employee Data (mock — will be replaced by PHP) ---------- */
-  const employees = [
-    { id: 1, name: "Juan Dela Cruz", role: "Technician", photo: "" },
-    { id: 2, name: "Maria Santos", role: "Admin", photo: "" },
-    { id: 3, name: "Pedro Reyes", role: "Technician", photo: "" },
-    { id: 4, name: "Ana Villanueva", role: "Secretary", photo: "" },
-    { id: 5, name: "Carlos Mendoza", role: "Driver", photo: "" },
-    { id: 6, name: "Rosa Bautista", role: "Helper", photo: "" },
-    { id: 7, name: "Miguel Torres", role: "Construction Worker", photo: "" },
-    { id: 8, name: "Elena Garcia", role: "Developer", photo: "" },
-    { id: 9, name: "Ramon Flores", role: "Technician", photo: "" },
-    { id: 10, name: "Luz Ramos", role: "Admin", photo: "" },
-    { id: 11, name: "Jose Aquino", role: "Technician", photo: "" },
-    { id: 12, name: "Carmen Lim", role: "Secretary", photo: "" },
-  ];
+  let employees = [];
 
   /* ---------- Helpers ---------- */
   function getInitials(name) {
@@ -122,5 +108,22 @@
   searchInput.addEventListener("input", filterEmployees);
 
   /* ---------- Init ---------- */
-  renderEmployees(employees);
+  // Staff see everyone (kiosk). An employee only ever gets themselves,
+  // so skip the picker and go straight to their punch screen.
+  async function load() {
+    try {
+      const data = await api.get("punch-employee-list", "index");
+      if (!data.can_pick_any && data.employees.length === 1) {
+        location.replace("index.php?page=punch&employee_id=" + encodeURIComponent(data.employees[0].id));
+        return;
+      }
+      employees = data.employees;
+      renderEmployees(employees);
+    } catch (error) {
+      emptyState.classList.remove("hidden");
+      emptyState.textContent = "Couldn't load employees: " + error.message;
+    }
+  }
+
+  load();
 })();
