@@ -133,6 +133,27 @@ class PayrollRepository extends BaseRepository {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function findExactPeriod(string $start, string $end, int $employeeId = 0, string $frequency = ''): array {
+        $sql    = "SELECT " . self::WITH_EMPLOYEE . "
+                   FROM payroll_periods pp
+                   LEFT JOIN employees e ON e.id = pp.employee_id
+                   WHERE pp.period_start = ? AND pp.period_end = ?";
+        $params = [$start, $end];
+
+        if ($employeeId > 0) {
+            $sql     .= " AND pp.employee_id = ?";
+            $params[] = $employeeId;
+        }
+        if ($frequency !== '') {
+            $sql     .= " AND pp.pay_frequency = ?";
+            $params[] = $frequency;
+        }
+
+        $stmt = $this->db->prepare($sql . " ORDER BY e.full_name");
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findDuplicate(int $employeeId, string $start, string $end, ?int $exceptId = null): ?array {
         $sql = "SELECT " . self::COLUMNS . "
                 FROM payroll_periods pp

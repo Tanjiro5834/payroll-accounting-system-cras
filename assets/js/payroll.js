@@ -78,314 +78,249 @@
     }, 3000);
   }
 
-  /* ---------- Mock computation ---------- */
-  function computeMock(employeeId) {
-    const all = [
-      {
-        id: 1,
-        name: "Juan Dela Cruz",
-        role: "Technician",
-        freq: "Weekly",
-        rate: 120,
-        reg: 80,
-        ot: 6,
-        nd: 2,
-        late: 0,
-        ut: 0,
-      },
-      {
-        id: 2,
-        name: "Maria Santos",
-        role: "Admin",
-        freq: "Monthly",
-        rate: 185,
-        reg: 88,
-        ot: 0,
-        nd: 0,
-        late: 15,
-        ut: 10,
-      },
-      {
-        id: 3,
-        name: "Pedro Reyes",
-        role: "Technician",
-        freq: "Kinsenas",
-        rate: 130,
-        reg: 80,
-        ot: 4,
-        nd: 1,
-        late: 5,
-        ut: 0,
-      },
-      {
-        id: 4,
-        name: "Ana Villanueva",
-        role: "Secretary",
-        freq: "Monthly",
-        rate: 145,
-        reg: 88,
-        ot: 2,
-        nd: 0,
-        late: 0,
-        ut: 0,
-      },
-      {
-        id: 5,
-        name: "Carlos Mendoza",
-        role: "Driver",
-        freq: "Weekly",
-        rate: 100,
-        reg: 78,
-        ot: 8,
-        nd: 3,
-        late: 10,
-        ut: 5,
-      },
-    ];
-    let list = all;
-    if (employeeId)
-      list = all.filter(function (e) {
-        return String(e.id) === String(employeeId);
-      });
-
-    return list.map(function (e) {
-      const gross = e.reg * e.rate + e.ot * e.rate * 1.25 + e.nd * e.rate * 0.1;
-      const lateDed = (e.late / 60) * e.rate;
-      const utDed = (e.ut / 60) * e.rate;
-      const sss = Math.min(gross * 0.045, 900);
-      const ph = Math.min(gross * 0.02, 900);
-      const pi = Math.min(gross * 0.02, 200);
-      const tax = gross > 20833 ? (gross - 20833) * 0.15 : 0;
-      const ded = lateDed + utDed + sss + ph + pi + tax;
-      return Object.assign({}, e, {
-        gross: gross,
-        deductions: ded,
-        net: gross - ded,
-      });
-    });
-  }
-
+  /* ---------- Elements ---------- */
   const resultsSection = document.getElementById("results-section");
   const emptyState = document.getElementById("empty-state");
   const tbody = document.getElementById("payroll-tbody");
   const computeBtn = document.getElementById("compute-btn");
   const computeLabel = document.getElementById("compute-label");
   const exportBtn = document.getElementById("export-csv");
+  const employeeSelect = document.getElementById("filter-employee");
+  const startInput = document.getElementById("filter-start");
+  const endInput = document.getElementById("filter-end");
+  const freqSelect = document.getElementById("filter-freq");
 
-  let currentResults = [];
+  const STATUS_BADGE = {
+    draft: "bg-slate-200 text-slate-700",
+    computed: "bg-sky-100 text-sky-800",
+    approved: "bg-amber-100 text-amber-800",
+    paid: "bg-emerald-100 text-emerald-800",
+  };
 
-  computeBtn.addEventListener("click", function () {
-    computeLabel.textContent = "Computing…";
-    computeBtn.disabled = true;
+  // One next step per status; paid is final.
+  const NEXT_ACTION = {
+    computed: { action: "approve", label: "Approve", done: "Approved.", confirm: null },
+    approved: {
+      action: "markAsPaid",
+      label: "Mark paid",
+      done: "Marked as paid.",
+      confirm: "Mark this payroll as paid? This can't be undone.",
+    },
+  };
 
-    const empId = document.getElementById("filter-employee").value;
-    const start = document.getElementById("filter-start").value;
-    const end = document.getElementById("filter-end").value;
-    const freq = document.getElementById("filter-freq").value;
+  /* ---------- Filters ---------- */
+  function isoDate(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
 
-    if (!start || !end) {
+  // Default period: this week, Monday → Saturday (weekly payroll is released on Saturday).
+  function setDefaultPeriod() {
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+    startInput.value = isoDate(monday);
+    endInput.value = isoDate(saturday);
+  }
+
+  function filters() {
+    return {
+      start: startInput.value,
+      end: endInput.value,
+      employee_id: employeeSelect.value,
+      frequency: freqSelect.value,
+    };
+  }
+
+  function validPeriod(f) {
+    if (!f.start || !f.end) {
       showToast("Please select both period start and end dates.", "error");
-      computeLabel.textContent = "Compute Payroll";
-      computeBtn.disabled = false;
-      return;
+      return false;
     }
-    if (new Date(start) > new Date(end)) {
-      showToast("Period start must be before end date.", "error");
-      computeLabel.textContent = "Compute Payroll";
-      computeBtn.disabled = false;
-      return;
+    if (f.start > f.end) {
+      showToast("Period start must be on or before the end date.", "error");
+      return false;
     }
+    return true;
+  }
 
-    // Try real API, fall back to mock
-    fetch(
-      "/api/payroll?start=" +
-        encodeURIComponent(start) +
-        "&end=" +
-        encodeURIComponent(end) +
-        "&employee_id=" +
-        encodeURIComponent(empId) +
-        "&frequency=" +
-        encodeURIComponent(freq),
-    )
-      .then(function (r) {
-        if (!r.ok) throw new Error("API");
-        return r.json();
-      })
-      .then(function (data) {
-        currentResults = data.rows || data;
-        renderResults(currentResults, start, end);
-      })
-      .catch(function () {
-        setTimeout(function () {
-          currentResults = computeMock(empId);
-          if (freq)
-            currentResults = currentResults.filter(function (r) {
-              return r.freq.toLowerCase() === freq.toLowerCase();
-            });
-          renderResults(currentResults, start, end);
-        }, 400);
-      });
-  });
-
-  function renderResults(rows, start, end) {
-    tbody.innerHTML = "";
-    if (!rows.length) {
-      showToast("No data for the selected period.", "error");
-      resultsSection.classList.add("hidden");
-      emptyState.classList.remove("hidden");
-      exportBtn.disabled = true;
-      computeLabel.textContent = "Compute Payroll";
-      computeBtn.disabled = false;
-      return;
+  async function loadEmployees() {
+    try {
+      const employees = await api.get("employees", "index");
+      employees
+        .filter(function (e) { return e.status === "Active"; })
+        .forEach(function (e) {
+          const opt = document.createElement("option");
+          opt.value = e.id;
+          opt.textContent = e.name;
+          employeeSelect.appendChild(opt);
+        });
+    } catch (error) {
+      showToast("Couldn't load employees: " + error.message, "error");
     }
+  }
 
-    rows.forEach(function (r) {
-      const tr = document.createElement("tr");
-      tr.className = "hover:bg-slate-50 transition-colors";
-      tr.innerHTML =
-        '<td class="px-4 py-3 whitespace-nowrap">' +
-        '<p class="text-sm font-semibold text-slate-900">' +
-        escapeHtml(r.name) +
-        "</p>" +
-        '<p class="text-[11px] text-slate-400">' +
-        escapeHtml(r.role) +
-        " · " +
-        escapeHtml(r.freq) +
-        "</p>" +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        num(r.reg) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        num(r.ot) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        num(r.nd) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs ' +
-        (r.late > 0 ? "text-amber-700" : "text-slate-400") +
-        ' whitespace-nowrap">' +
-        r.late +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs ' +
-        (r.ut > 0 ? "text-amber-700" : "text-slate-400") +
-        ' whitespace-nowrap">' +
-        r.ut +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        peso(r.rate) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-900 whitespace-nowrap">' +
-        peso(r.gross) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-red-700 whitespace-nowrap">-' +
-        peso(r.deductions) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' +
-        peso(r.net) +
-        "</td>";
-      tbody.appendChild(tr);
-    });
-
-    // Totals
-    const totals = rows.reduce(
-      function (acc, r) {
-        acc.gross += r.gross;
-        acc.ded += r.deductions;
-        acc.net += r.net;
-        return acc;
-      },
-      { gross: 0, ded: 0, net: 0 },
-    );
-
-    const totalTr = document.createElement("tr");
-    totalTr.className = "bg-slate-50 border-t-2 border-slate-200";
-    totalTr.innerHTML =
-      '<td class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700" colspan="7">Total (' +
-      rows.length +
-      " employees)</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' +
-      peso(totals.gross) +
-      "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-red-700 whitespace-nowrap">-' +
-      peso(totals.ded) +
-      "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' +
-      peso(totals.net) +
-      "</td>";
-    tbody.appendChild(totalTr);
-
-    document.getElementById("results-period").textContent =
-      start + " \u2192 " + end;
-    document.getElementById("results-count").textContent =
-      rows.length + " row" + (rows.length === 1 ? "" : "s");
-
-    resultsSection.classList.remove("hidden");
-    emptyState.classList.add("hidden");
-    exportBtn.disabled = false;
-    computeLabel.textContent = "Compute Payroll";
-    computeBtn.disabled = false;
-    showToast(
-      "Payroll computed for " +
-        rows.length +
-        " employee" +
-        (rows.length === 1 ? "" : "s") +
-        ".",
-      "success",
+  /* ---------- Table ---------- */
+  function minutesCell(n) {
+    return (
+      '<td class="px-4 py-3 text-right font-mono text-xs ' +
+      (Number(n) > 0 ? "text-amber-700" : "text-slate-400") +
+      ' whitespace-nowrap">' + Number(n) + "</td>"
     );
   }
 
-  /* ---------- CSV export ---------- */
-  exportBtn.addEventListener("click", function () {
-    if (!currentResults.length) return;
-    const headers = [
-      "Employee",
-      "Role",
-      "Frequency",
-      "Regular Hours",
-      "OT Hours",
-      "ND Hours",
-      "Late (min)",
-      "Undertime (min)",
-      "Rate",
-      "Gross Pay",
-      "Deductions",
-      "Net Pay",
-    ];
-    const lines = [headers.join(",")];
-    currentResults.forEach(function (r) {
-      lines.push(
-        [
-          '"' + r.name.replace(/"/g, '""') + '"',
-          '"' + r.role + '"',
-          r.freq,
-          num(r.reg),
-          num(r.ot),
-          num(r.nd),
-          r.late,
-          r.ut,
-          num(r.rate),
-          num(r.gross),
-          num(r.deductions),
-          num(r.net),
-        ].join(","),
-      );
+  function actionCell(r) {
+    const next = NEXT_ACTION[r.status];
+    if (!next) {
+      return r.paid_at ? '<span class="font-mono text-[11px] text-slate-400">' + escapeHtml(r.paid_at.split(" ")[0]) + "</span>" : "";
+    }
+    return (
+      '<button type="button" data-action="' + next.action + '" data-id="' + Number(r.id) + '"' +
+      ' class="px-3 py-1.5 rounded-md border border-line text-xs font-semibold text-coolant hover:bg-coolant-tint focus:outline-none focus:ring-2 focus:ring-frost disabled:opacity-50 transition-colors">' +
+      next.label + "</button>"
+    );
+  }
+
+  function payrollRow(r) {
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50 transition-colors";
+    tr.innerHTML =
+      '<td class="px-4 py-3 whitespace-nowrap">' +
+        '<p class="text-sm font-semibold text-slate-900">' + escapeHtml(r.full_name) + "</p>" +
+        '<p class="text-[11px] text-slate-400">' + escapeHtml(r.employee_role) + " · " + escapeHtml(r.pay_frequency) + "</p>" +
+      "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + num(r.total_regular_hours) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + num(r.total_overtime_hours) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + num(r.total_night_diff_hours) + "</td>" +
+      minutesCell(r.total_late_minutes) +
+      minutesCell(r.total_undertime_minutes) +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + peso(r.hourly_rate) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-900 whitespace-nowrap">' + peso(r.gross_pay) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-red-700 whitespace-nowrap">-' + peso(r.total_deductions) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(r.net_pay) + "</td>" +
+      '<td class="px-4 py-3"><span class="inline-block px-2 py-0.5 rounded font-mono text-[11px] font-semibold uppercase ' +
+        (STATUS_BADGE[r.status] || STATUS_BADGE.draft) + '">' + escapeHtml(r.status) + "</span></td>" +
+      '<td class="px-4 py-3 text-right whitespace-nowrap">' + actionCell(r) + "</td>";
+    return tr;
+  }
+
+  // Display totals only; the saved amounts come from the server's bcmath math.
+  function totalsRow(rows) {
+    const sum = function (key) {
+      return rows.reduce(function (acc, r) { return acc + Number(r[key]); }, 0);
+    };
+    const tr = document.createElement("tr");
+    tr.className = "bg-slate-50 border-t-2 border-slate-200";
+    tr.innerHTML =
+      '<td class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700" colspan="7">Total (' +
+        rows.length + " employee" + (rows.length === 1 ? "" : "s") + ")</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' + peso(sum("gross_pay")) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-red-700 whitespace-nowrap">-' + peso(sum("total_deductions")) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(sum("net_pay")) + "</td>" +
+      '<td colspan="2"></td>';
+    return tr;
+  }
+
+  function renderResults(rows, f) {
+    tbody.replaceChildren();
+    const hasRows = rows.length > 0;
+    resultsSection.classList.toggle("hidden", !hasRows);
+    emptyState.classList.toggle("hidden", hasRows);
+    exportBtn.disabled = !hasRows;
+    if (!hasRows) return;
+
+    rows.forEach(function (r) {
+      tbody.appendChild(payrollRow(r));
     });
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download =
-      "payroll_" +
-      document.getElementById("filter-start").value +
-      "_" +
-      document.getElementById("filter-end").value +
-      ".csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("CSV downloaded.", "success");
+    tbody.appendChild(totalsRow(rows));
+
+    document.getElementById("results-period").textContent = f.start + " → " + f.end;
+    document.getElementById("results-count").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s");
+  }
+
+  /* ---------- Load / compute ---------- */
+  // Shows what's already saved for the period, without recomputing.
+  async function loadSaved() {
+    const f = filters();
+    if (!f.start || !f.end || f.start > f.end) return;
+    try {
+      renderResults(await api.get("payroll", "index", { params: f }), f);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+
+  computeBtn.addEventListener("click", async function () {
+    const f = filters();
+    if (!validPeriod(f)) return;
+
+    computeLabel.textContent = "Computing…";
+    computeBtn.disabled = true;
+    try {
+      const rows = await api.post("payroll", "compute", { body: f });
+      renderResults(rows, f);
+      showToast("Payroll computed for " + rows.length + " employee" + (rows.length === 1 ? "" : "s") + ".", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      computeLabel.textContent = "Compute Payroll";
+      computeBtn.disabled = false;
+    }
   });
+
+  [employeeSelect, startInput, endInput, freqSelect].forEach(function (el) {
+    el.addEventListener("change", loadSaved);
+  });
+
+  /* ---------- Row actions (event delegation — rows are re-rendered on every load) ---------- */
+  tbody.addEventListener("click", async function (e) {
+    const button = e.target.closest("button[data-action]");
+    if (!button) return;
+
+    const step = Object.values(NEXT_ACTION).find(function (s) { return s.action === button.dataset.action; });
+    if (step.confirm && !confirm(step.confirm)) return;
+
+    button.disabled = true;
+    try {
+      await api.post("payroll", step.action, { id: button.dataset.id });
+      showToast(step.done, "success");
+      await loadSaved();
+    } catch (error) {
+      showToast(error.message, "error");
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- CSV export (server builds the file; fetched as a blob so errors show as a toast) ---------- */
+  exportBtn.addEventListener("click", async function () {
+    const f = filters();
+    try {
+      const res = await fetch(
+        "index.php?" + new URLSearchParams(Object.assign({ page: "payroll", action: "export" }, f)),
+        { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(function () { return {}; });
+        throw new Error(data.error || "Export failed (" + res.status + ")");
+      }
+
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "payroll_" + f.start + "_" + f.end + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("CSV downloaded.", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  });
+
+  /* ---------- Init ---------- */
+  setDefaultPeriod();
+  loadEmployees();
+  loadSaved();
 })();

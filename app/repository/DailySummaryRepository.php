@@ -7,6 +7,39 @@ class DailySummaryRepository extends BaseRepository {
     private const COLUMNS = 'id, employee_id, work_date, regular_hours, overtime_hours,
                              night_diff_hours, late_minutes, undertime_minutes, is_rest_day, computed_at';
 
+    private const UPSERT_COLUMNS = [
+        'employee_id', 'work_date', 'regular_hours', 'overtime_hours',
+        'night_diff_hours', 'late_minutes', 'undertime_minutes', 'is_rest_day',
+    ];
+    private const UPSERT_CHUNK_SIZE = 500;
+
+    // One multi-row statement per 500 rows instead of one query per employee-day.
+    public function upsertMany(array $rows): void {
+        $tuple = '(' . implode(', ', array_fill(0, count(self::UPSERT_COLUMNS), '?')) . ')';
+
+        foreach (array_chunk($rows, self::UPSERT_CHUNK_SIZE) as $chunk) {
+            $params = [];
+            foreach ($chunk as $row) {
+                foreach (self::UPSERT_COLUMNS as $column) {
+                    $params[] = $row[$column];
+                }
+            }
+
+            $stmt = $this->db->prepare(
+                "INSERT INTO daily_summary (" . implode(', ', self::UPSERT_COLUMNS) . ")
+                 VALUES " . implode(', ', array_fill(0, count($chunk), $tuple)) . "
+                 ON DUPLICATE KEY UPDATE
+                    regular_hours     = VALUES(regular_hours),
+                    overtime_hours    = VALUES(overtime_hours),
+                    night_diff_hours  = VALUES(night_diff_hours),
+                    late_minutes      = VALUES(late_minutes),
+                    undertime_minutes = VALUES(undertime_minutes),
+                    is_rest_day       = VALUES(is_rest_day)"
+            );
+            $stmt->execute($params);
+        }
+    }
+
     public function upsert(array $data): void {
         $stmt = $this->db->prepare(
             "INSERT INTO daily_summary
@@ -105,9 +138,11 @@ class DailySummaryRepository extends BaseRepository {
 
     public function sumByPeriod(int $employeeId, string $start, string $end): array {
         $stmt = $this->db->prepare(
-            "SELECT COALESCE(SUM(regular_hours), 0)    AS total_regular,
-                    COALESCE(SUM(overtime_hours), 0)   AS total_overtime,
-                    COALESCE(SUM(night_diff_hours), 0) AS total_night_diff,
+            "SELECT COALESCE(SUM(regular_hours), 0)     AS total_regular,
+                    COALESCE(SUM(overtime_hours), 0)    AS total_overtime,
+                    COALESCE(SUM(night_diff_hours), 0)  AS total_night_diff,
+                    COALESCE(SUM(late_minutes), 0)      AS total_late,
+                    COALESCE(SUM(undertime_minutes), 0) AS total_undertime,
                     COUNT(DISTINCT work_date)          AS days_worked
              FROM daily_summary
              WHERE employee_id = :employee_id
@@ -124,6 +159,8 @@ class DailySummaryRepository extends BaseRepository {
             'total_regular'    => '0',
             'total_overtime'   => '0',
             'total_night_diff' => '0',
+            'total_late'       => 0,
+            'total_undertime'  => 0,
             'days_worked'      => 0,
         ];
     }

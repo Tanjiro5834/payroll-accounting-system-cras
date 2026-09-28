@@ -17,24 +17,101 @@ class PayrollService {
 
     private const HOURS_PER_MONTH = '173.33';       // DOLE convention for monthly → hourly
     private const OT_MULTIPLIER   = '1.25';
-    private const NIGHT_MULTIPLIER = '1.10';
+    // Night diff is a 10% PREMIUM on top of the hours already paid as regular/OT (Labor Code Art. 86),
+    // not 110% of the rate, which would pay those hours twice.
+    private const NIGHT_MULTIPLIER = '0.10';
     private const REST_MULTIPLIER  = '1.30';
 
     private PayrollRepository $repository;
     private EmployeeRepository $employees;
     private DailySummaryRepository $dailySummary;
     private PayrollDeductionService $deductions;
+    private TimesheetService $timesheet;
 
     public function __construct(
         ?PayrollRepository $repository = null,
         ?EmployeeRepository $employees = null,
         ?DailySummaryRepository $dailySummary = null,
-        ?PayrollDeductionService $deductions = null
+        ?PayrollDeductionService $deductions = null,
+        ?TimesheetService $timesheet = null
     ) {
         $this->repository   = $repository   ?? new PayrollRepository();
         $this->employees    = $employees    ?? new EmployeeRepository();
         $this->dailySummary = $dailySummary ?? new DailySummaryRepository();
         $this->deductions   = $deductions   ?? new PayrollDeductionService();
+        $this->timesheet    = $timesheet    ?? new TimesheetService();
+    }
+
+    // Compute + save payroll for a period, then return the saved rows (with employee names).
+    // Punches are summarized first, so hours always reflect the latest punches.
+    // Approved/paid periods are left untouched; draft/computed ones are replaced.
+    public function computeAndSave(string $start, string $end, int $computedBy, int $employeeId = 0, string $frequency = ''): array {
+        $this->assertDateRange($start, $end);
+        $this->assertFrequency($frequency);
+
+        $this->timesheet->summarizePeriod($start, $end);
+
+        $employees = $this->employeesToPay($employeeId, $frequency);
+        $this->repository->transaction(function () use ($employees, $start, $end, $computedBy) {
+            foreach ($employees as $employee) {
+                $this->saveComputed($this->computeForPeriod((int) $employee['id'], $start, $end, $computedBy));
+            }
+        });
+
+        return $this->getPeriod($start, $end, $employeeId, $frequency);
+    }
+
+    // Saved payroll rows for exactly this period.
+    public function getPeriod(string $start, string $end, int $employeeId = 0, string $frequency = ''): array {
+        $this->assertDateRange($start, $end);
+        $this->assertFrequency($frequency);
+        return $this->repository->findExactPeriod($start, $end, $employeeId, $frequency);
+    }
+
+    // computed → approved. The SQL WHERE on status makes a double click or a race a no-op.
+    public function approve(int $payrollId): bool {
+        $record = $this->repository->findById($payrollId);
+        if (!$record) {
+            throw new DomainException("Payroll period not found: {$payrollId}");
+        }
+        if ($record['status'] !== 'computed') {
+            throw new DomainException("Only computed payrolls can be approved (current: {$record['status']}).");
+        }
+        if (!$this->repository->updateStatus($payrollId, 'computed', 'approved')) {
+            throw new DomainException('Payroll was modified by another user. Reload and try again.');
+        }
+        return true;
+    }
+
+    private function saveComputed(array $row): void {
+        $existing = $this->repository->findDuplicate($row['employee_id'], $row['period_start'], $row['period_end']);
+        if ($existing && !in_array($existing['status'], ['draft', 'computed'], true)) {
+            return; // approved/paid payroll is locked
+        }
+        if ($existing) {
+            $this->repository->deleteById((int) $existing['id']); // its deduction snapshot cascades
+        }
+
+        $id = $this->repository->createPeriod($row);
+        $this->deductions->snapshotForPayroll($id, $row['deductions']);
+    }
+
+    /** @return array<int, array> employee rows as arrays */
+    private function employeesToPay(int $employeeId, string $frequency): array {
+        $employees = $employeeId > 0
+            ? [$this->requireEmployee($employeeId)]
+            : array_map(fn($e) => $e->toArray(), $this->employees->findAllActive());
+
+        if ($frequency === '') {
+            return $employees;
+        }
+        return array_values(array_filter($employees, fn(array $e) => $e['pay_frequency'] === $frequency));
+    }
+
+    private function assertFrequency(string $frequency): void {
+        if ($frequency !== '' && !in_array($frequency, self::PAY_FREQUENCIES, true)) {
+            throw new InvalidArgumentException('pay_frequency must be one of: ' . implode(', ', self::PAY_FREQUENCIES) . '.');
+        }
     }
 
     public function computeForPeriod(int $employeeId, string $start, string $end, int $computedBy): array {
@@ -49,8 +126,8 @@ class PayrollService {
             'total_regular_hours'     => (string) $summary['total_regular'],
             'total_overtime_hours'    => (string) $summary['total_overtime'],
             'total_night_diff_hours'  => (string) $summary['total_night_diff'],
-            'total_late_minutes'      => 0,
-            'total_undertime_minutes' => 0,
+            'total_late_minutes'      => (int) $summary['total_late'],
+            'total_undertime_minutes' => (int) $summary['total_undertime'],
         ];
 
         $gross = $this->computeGrossPay($totals, $employee, $hourly);
@@ -82,6 +159,7 @@ class PayrollService {
             'computed_at'             => $this->now(),
             'paid_at'                 => null,
             'notes'                   => null,
+            'deductions'              => $computed,
         ];
     }
 
@@ -90,7 +168,7 @@ class PayrollService {
 
         $results = [];
         foreach ($this->employees->findAllActive() as $employee) {
-            $employeeId = (int) $employee['id'];
+            $employeeId = (int) $employee->getId();
             $results[]  = $this->computeForPeriod($employeeId, $start, $end, $computedBy);
         }
 

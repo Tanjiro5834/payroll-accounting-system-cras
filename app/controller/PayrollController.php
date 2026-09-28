@@ -18,6 +18,8 @@ class PayrollController extends BaseController {
         $this->deductions = $deductions ?? new PayrollDeductionService();
     }
 
+    // GET ?page=payroll&action=index&start=Y-m-d&end=Y-m-d[&employee_id=5][&frequency=weekly]
+    // With start/end: saved rows for exactly that period. Otherwise: one employee's history, or by status.
     public function index(): void {
         AuthMiddleware::requireLogin();
 
@@ -27,12 +29,12 @@ class PayrollController extends BaseController {
         $status     = $this->queryTrim('status');
 
         $this->guard(function () use ($employeeId, $start, $end, $status) {
-            if ($employeeId > 0) {
-                Response::json($this->service->getPayrollHistory($employeeId));
+            if ($start !== '' && $end !== '') {
+                Response::json($this->service->getPeriod($start, $end, $employeeId, $this->queryTrim('frequency')));
                 return;
             }
-            if ($start !== '' && $end !== '') {
-                Response::json($this->service->getByDateRange($start, $end));
+            if ($employeeId > 0) {
+                Response::json($this->service->getPayrollHistory($employeeId));
                 return;
             }
             if ($status !== '') {
@@ -43,31 +45,41 @@ class PayrollController extends BaseController {
         }, 'Failed to load payroll records.');
     }
 
+    // POST ?page=payroll&action=compute   body: { start, end, employee_id?, frequency? }
+    // Summarizes punches, computes, saves, and returns the saved rows for the period.
     public function compute(): void {
         AuthMiddleware::requireLogin();
         $this->requireMethod('POST');
 
-        $actorId    = $this->requireSessionUser();
-        $employeeId = $this->jsonInt($_POST, 'employee_id');
-        $start      = $this->jsonField($_POST, 'start');
-        $end        = $this->jsonField($_POST, 'end');
+        $actorId = $this->requireSessionUser();
+        $input   = $this->input();
+        $start   = $this->jsonField($input, 'start');
+        $end     = $this->jsonField($input, 'end');
 
         if ($start === '' || $end === '') {
             Response::error('start and end are required.', 422);
         }
 
-        $this->guard(function () use ($actorId, $employeeId, $start, $end) {
-            if ($employeeId > 0) {
-                Response::json([
-                    'ok'   => true,
-                    'data' => $this->service->computeForPeriod($employeeId, $start, $end, $actorId),
-                ]);
-                return;
-            }
-
-            $rows = $this->service->computeForAllEmployees($start, $end, $actorId);
-            Response::json(['ok' => true, 'computed' => count($rows), 'data' => $rows]);
+        $this->guard(function () use ($input, $start, $end, $actorId) {
+            Response::json($this->service->computeAndSave(
+                $start,
+                $end,
+                $actorId,
+                $this->jsonInt($input, 'employee_id'),
+                $this->jsonField($input, 'frequency')
+            ));
         }, 'Failed to compute payroll.');
+    }
+
+    // POST ?page=payroll&action=approve&id=5   (computed → approved)
+    public function approve(int $id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $this->guard(function () use ($id) {
+            $this->service->approve($id);
+            Response::json(['ok' => true]);
+        }, 'Failed to approve payroll.');
     }
 
     public function show(int $id): void {
@@ -99,10 +111,10 @@ class PayrollController extends BaseController {
         $end        = $this->queryTrim('end');
 
         try {
-            if ($employeeId > 0) {
+            if ($start !== '' && $end !== '') {
+                $rows = $this->service->getPeriod($start, $end, $employeeId, $this->queryTrim('frequency'));
+            } elseif ($employeeId > 0) {
                 $rows = $this->service->getPayrollHistory($employeeId);
-            } elseif ($start !== '' && $end !== '') {
-                $rows = $this->service->getByDateRange($start, $end);
             } else {
                 Response::error('Provide employee_id or a start/end range.', 422);
                 return;
@@ -113,7 +125,8 @@ class PayrollController extends BaseController {
         }
 
         header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="payroll.csv"');
+        $name = $start !== '' ? "payroll_{$start}_{$end}.csv" : 'payroll.csv';
+        header("Content-Disposition: attachment; filename=\"{$name}\"");
         echo $this->service->exportToCsv($rows);
         exit;
     }
