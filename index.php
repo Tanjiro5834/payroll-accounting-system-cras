@@ -81,6 +81,4 @@ if (!in_array($action, $actions, true)) {
 
 if($page !== 'login') (new CsrfMiddleware())->handle();   // no-op on GET
 
-$id === null
-    ? (new $controller())->$action()
-    : (new $controller())->$action($id);
+$id === null ? (new $controller())->$action() : (new $controller())->$action($id);

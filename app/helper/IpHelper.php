@@ -38,8 +38,6 @@ class IpHelper{
     public static function isPrivate(string $ip): bool {
         if (!self::isValid($ip)) return false;
 
-        // filter_var with FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-        // returns false for private/reserved addresses.
         return filter_var(
             $ip,
             FILTER_VALIDATE_IP,

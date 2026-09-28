@@ -3,56 +3,87 @@ namespace App\Service;
 
 use App\Middleware\AuthMiddleware;
 use App\Repository\UserRepository;
+use InvalidArgumentException;
 
-class AuthService{
+class AuthService {
+    private const MIN_PASSWORD_LENGTH = 8;
+    private const COOKIE_EXPIRED_OFFSET = 42000;
+
     private UserRepository $users;
 
-    public function __construct(){
-        $this->users = new UserRepository();
+    public function __construct(?UserRepository $users = null) {
+        $this->users = $users ?? new UserRepository();
     }
 
-    public function login(string $username, string $password): ?array{
+    public function login(string $username, string $password): ?array {
         $username = trim($username);
-        if ($username === '' || $password === '') return null;
+        if ($username === '' || $password === '') {
+            throw new InvalidArgumentException('Username and password are required.');
+        }
 
         $user = $this->users->findByUsername($username);
-        if (!$user || !(int) $user['is_active'] || !password_verify($password, $user['password_hash'])) {
+        if (!$user || !(int) $user['is_active']) {
+            return null;
+        }
+        if (!password_verify($password, (string) $user['password_hash'])) {
             return null;
         }
 
+        $this->startSession();
         AuthMiddleware::login($user);
         $this->users->updateLastLogin((int) $user['id']);
-        return $user;
+
+        return $this->publicUser($user);
     }
-    public function logout() : void {
+
+    public function logout(): void {
+        $this->startSession();
+
         $_SESSION = [];
 
-        if (ini_get("session.use_cookies")) {
+        if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
             setcookie(
                 session_name(),
                 '',
-                time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
+                [
+                    'expires'  => time() - self::COOKIE_EXPIRED_OFFSET,
+                    'path'     => $params['path'],
+                    'domain'   => $params['domain'],
+                    'secure'   => $params['secure'],
+                    'httponly' => $params['httponly'],
+                    'samesite' => 'Lax',
+                ]
             );
         }
 
         session_destroy();
     }
 
-    public function check() : bool {
-        return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+    public function check(): bool {
+        return ($_SESSION['logged_in'] ?? false) === true;
     }
 
-    public function user() : ?array {
-        if (!$this->check()) return null;
+    public function user(): ?array {
+        if (!$this->check()) {
+            return null;
+        }
+
         return [
             'id'   => $_SESSION['user_id']   ?? null,
             'role' => $_SESSION['user_role'] ?? null,
             'name' => $_SESSION['user_name'] ?? null,
         ];
+    }
+
+    private function startSession(): void {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+    }
+
+    private function publicUser(array $user): array {
+        unset($user['password_hash']);
+        return $user;
     }
 }

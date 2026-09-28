@@ -1,9 +1,8 @@
 <?php
-
 class Database {
     private static ?Database $instance = null;
     private PDO $connection;
-    private int $transactionLevel = 0; // Track nesting
+    private int $transactionLevel = 0;
 
     private function __construct() {
         $isLocal = $this->isLocalhost();

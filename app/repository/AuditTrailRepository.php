@@ -2,104 +2,146 @@
 namespace App\Repository;
 
 use PDO;
+use Throwable;
 
-class AuditTrailRepository extends BaseRepository{
-    public function log(?int $employeeId, string $actionType, $details = null, ?string $ip = null){
-        try{
-            $stmt = $this->db->prepare(
-                "INSERT INTO audit_trail (employee_id, action_type, action_details, ip_address, performed_at)
-                VALUES (?, ?, ?, ?, NOW())"
-            );
+class AuditTrailRepository extends BaseRepository {
+    private const DEFAULT_LIMIT = 500;
+    private const MAX_LIMIT = 1000;
 
-            $success = $stmt->execute([
-                $employeeId,
-                $actionType,
-                is_array($details) ? json_encode($details) : $details,
-                $ip,
-            ]);
+    public function log(?int $employeeId, string $actionType, mixed $details = null, ?string $ip = null): bool {
+        $stmt = $this->db->prepare(
+            "INSERT INTO audit_trail (employee_id, action_type, action_details, ip_address, performed_at)
+             VALUES (?, ?, ?, ?, NOW())"
+        );
 
-            if(!$success){
-                $this->db->rollback();
-                return false;
-            }
-
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            error_log("Logging audit trail failed" . $e->getMessage());
-            throw $e;
-        }
+        return $stmt->execute([
+            $employeeId,
+            $actionType,
+            is_array($details) ? json_encode($details) : $details,
+            $ip,
+        ]);
     }
 
-    public function findByDateRange(string $start, string $end, ?int $employeeId = null): array{
-        $sql = "SELECT at.*, e.full_name 
-                FROM audit_trail at
-                LEFT JOIN employees e ON e.id = at.employee_id
-                WHERE DATE(at.performed_at) BETWEEN ? AND ?";
-        $params = [$start, $end];
-        if ($employeeId) {
-            $sql .= " AND at.employee_id = ?";
-            $params[] = $employeeId;
-        }
-        $sql .= " ORDER BY at.performed_at DESC LIMIT 500";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    }
+    public function findByDateRange(string $start, string $end, ?int $employeeId = null, int $limit = self::DEFAULT_LIMIT): array {
+        $limit = $this->clampLimit($limit);
+        $endExclusive = $this->nextDay($end);
 
-    public function findByActionType(string $actionType, string $start, string $end) : array{
-        $sql = "SELECT at.*, e.full_name 
+        $sql = "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
+                       at.ip_address, at.performed_at
                 FROM audit_trail at
                 LEFT JOIN employees e ON e.id = at.employee_id
-                WHERE action_type = ?";
+                WHERE at.performed_at >= :start
+                  AND at.performed_at <  :end";
+        $params = [':start' => $start, ':end' => $endExclusive];
+
+        if ($employeeId !== null) {
+            $sql .= " AND at.employee_id = :employee_id";
+            $params[':employee_id'] = $employeeId;
+        }
+
+        $sql .= " ORDER BY at.performed_at DESC, at.id DESC LIMIT :lim";
+
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([$actionType, $start, $end]);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findByEmployee(int $employeeId, int $limit = 100) : array {
-        $stmt = $this->db->prepare("SELECT at.*, e.full_name
-                FROM audit_trail at 
-                LEFT JOIN employees e ON e.id = at.employee_id
-                WHERE at.employee_id = ?
-                ORDER BY at.created_at DESC
-                LIMIT ?");
-        $stmt->bindValue(1, $employeeId, PDO::PARAM_INT);
-        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+    public function findByActionType(string $actionType, string $start, string $end, int $limit = self::DEFAULT_LIMIT): array {
+        $limit = $this->clampLimit($limit);
+        $endExclusive = $this->nextDay($end);
+
+        $stmt = $this->db->prepare(
+            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
+                    at.ip_address, at.performed_at
+             FROM audit_trail at
+             LEFT JOIN employees e ON e.id = at.employee_id
+             WHERE at.action_type = :action_type
+               AND at.performed_at >= :start
+               AND at.performed_at <  :end
+             ORDER BY at.performed_at DESC, at.id DESC
+             LIMIT :lim"
+        );
+        $stmt->bindValue(':action_type', $actionType, PDO::PARAM_STR);
+        $stmt->bindValue(':start', $start, PDO::PARAM_STR);
+        $stmt->bindValue(':end', $endExclusive, PDO::PARAM_STR);
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function findByEmployee(int $employeeId, int $limit = 100): array {
+        $limit = $this->clampLimit($limit);
+
+        $stmt = $this->db->prepare(
+            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
+                    at.ip_address, at.performed_at
+             FROM audit_trail at
+             LEFT JOIN employees e ON e.id = at.employee_id
+             WHERE at.employee_id = :employee_id
+             ORDER BY at.performed_at DESC, at.id DESC
+             LIMIT :lim"
+        );
+        $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_INT);
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function countByActionType(string $actionType, string $start, string $end): int {
-        $sql = "SELECT COUNT(*) 
-                FROM audit_trail 
-                WHERE action_type = ?
-                  AND DATE(performed_at) BETWEEN ? AND ?";
+        $endExclusive = $this->nextDay($end);
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$actionType, $start, $end]);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+             FROM audit_trail
+             WHERE action_type = :action_type
+               AND performed_at >= :start
+               AND performed_at <  :end"
+        );
+        $stmt->execute([
+            ':action_type' => $actionType,
+            ':start'       => $start,
+            ':end'         => $endExclusive,
+        ]);
 
         return (int) $stmt->fetchColumn();
     }
 
     public function purgeOlderThan(string $date): int {
-        try {
-            $this->db->beginTransaction();
+        $stmt = $this->db->prepare("DELETE FROM audit_trail WHERE performed_at < ?");
+        $stmt->execute([$date]);
 
-            $stmt = $this->db->prepare("DELETE FROM audit_trail WHERE performed_at < ?");
-            $stmt->execute([$date]);
+        return $stmt->rowCount();
+    }
 
-            $deleted = $stmt->rowCount();
+    private function clampLimit(int $limit): int {
+        return max(1, min(self::MAX_LIMIT, $limit));
+    }
 
-            $this->db->commit();
-
-            return $deleted;
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
-            error_log("Audit trail purge failed: " . $e->getMessage());
-            throw $e;
+    private function nextDay(string $date): string {
+        $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $date, new \DateTimeZone('Asia/Manila'));
+        if (!$dt || $dt->format('Y-m-d') !== $date) {
+            throw new \InvalidArgumentException("Invalid date: {$date}");
         }
+        return $dt->modify('+1 day')->format('Y-m-d');
+    }
+
+    public function findById(int $id): ?array {
+        $stmt = $this->db->prepare(
+            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
+                    at.ip_address, at.performed_at
+             FROM audit_trail at
+             LEFT JOIN employees e ON e.id = at.employee_id
+             WHERE at.id = ? LIMIT 1"
+        );
+        $stmt->execute([$id]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 }

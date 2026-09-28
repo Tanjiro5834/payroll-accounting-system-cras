@@ -1,299 +1,295 @@
 <?php
 namespace App\Controller;
 
+use App\Helper\Response;
+use App\Middleware\AuthMiddleware;
 use App\Service\UserService;
-use InvalidArgumentException;
 use DomainException;
-use RuntimeException;
+use InvalidArgumentException;
 
-class UserController
-{
+class UserController {
     private UserService $service;
 
-    public function __construct(UserService $service)
-    {
-        $this->service = $service;
+    public function __construct(?UserService $service = null) {
+        $this->service = $service ?? new UserService();
     }
 
-    /**
-     * GET /users
-     * List all users.
-     */
-    public function index(): void
-    {
-        try {
-            $users = $this->service->getAll();
-            $this->json(['data' => $users], 200);
-        } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+    public function index(): void {
+        AuthMiddleware::requireLogin();
+        Response::json($this->service->getAll());
+    }
+
+    public function show($id): void {
+        AuthMiddleware::requireLogin();
+
+        $id   = (int) $id;
+        $user = $id > 0 ? $this->service->getById($id) : null;
+        if ($user === null) {
+            Response::error('User not found.', 404);
         }
+
+        unset($user['password_hash']);
+        Response::json($user);
     }
 
-    /**
-     * GET /users/{id}
-     * Show a single user.
-     */
-    public function show($id): void
-    {
+    public function create(): void {
+        AuthMiddleware::requireLogin();
+        Response::json(['page' => 'user-create']);
+    }
+
+    public function store(): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $data = $this->input();
+
         try {
-            $user = $this->service->getById((int) $id);
-
-            if ($user === null) {
-                $this->json(['error' => 'User not found.'], 404);
-                return;
-            }
-
-            $this->json(['data' => $user], 200);
-        } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * GET /users/create
-     * Show the create form (or return an empty template).
-     */
-    public function create(): void
-    {
-        // If you have a view layer, render it here.
-        // Example: $this->render('user/create');
-        $this->json(['message' => 'Create user form'], 200);
-    }
-
-    /**
-     * POST /users
-     * Store a new user.
-     */
-    public function store(): void
-    {
-        try {
-            $data = $this->input();
-
             $user = $this->service->create($data);
 
-            $this->json(['message' => 'User created.', 'data' => $user], 201);
+            Response::json([
+                'message' => 'User created.',
+                'data'    => $this->publicUser($user->toArray()),
+            ], 201);
         } catch (InvalidArgumentException $e) {
-            $this->json(['error' => $e->getMessage()], 422);
+            Response::error($e->getMessage(), 422);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 409);
+            Response::error($e->getMessage(), 409);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to create user.', 500);
         }
     }
 
-    /**
-     * GET /users/{id}/edit
-     * Show the edit form.
-     */
-    public function edit($id): void
-    {
-        try {
-            $user = $this->service->getById((int) $id);
+    public function edit($id): void {
+        AuthMiddleware::requireLogin();
 
-            if ($user === null) {
-                $this->json(['error' => 'User not found.'], 404);
-                return;
-            }
-
-            $this->json(['data' => $user], 200);
-        } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+        $id   = (int) $id;
+        $user = $id > 0 ? $this->service->getById($id) : null;
+        if ($user === null) {
+            Response::error('User not found.', 404);
         }
+
+        unset($user['password_hash']);
+        Response::json(['page' => 'user-edit', 'data' => $user]);
     }
 
-    /**
-     * PUT/PATCH /users/{id}
-     * Update an existing user.
-     */
-    public function update($id): void
-    {
+    public function update($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
         try {
-            $data = $this->input();
-
-            $user = $this->service->update((int) $id, $data);
-
-            $this->json(['message' => 'User updated.', 'data' => $user], 200);
+            $ok = $this->service->update($id, $this->input());
+            Response::json(['message' => 'User updated.', 'ok' => $ok]);
         } catch (InvalidArgumentException $e) {
-            $this->json(['error' => $e->getMessage()], 422);
+            Response::error($e->getMessage(), 422);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 409);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to update user.', 500);
         }
     }
 
-    /**
-     * DELETE /users/{id}
-     * Delete a user.
-     */
-    public function delete($id): void
-    {
+    public function delete($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
         try {
-            $this->service->delete((int) $id);
-            $this->json(['message' => 'User deleted.'], 200);
+            $this->service->delete($id);
+            Response::json(['message' => 'User deleted.']);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 404);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to delete user.', 500);
         }
     }
 
-    /**
-     * PATCH /users/{id}/deactivate
-     * Deactivate a user.
-     */
-    public function deactivate($id): void
-    {
+    public function deactivate($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
         try {
-            $this->service->deactivate((int) $id);
-            $this->json(['message' => 'User deactivated.'], 200);
+            $this->service->deactivate($id);
+            Response::json(['message' => 'User deactivated.']);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 404);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to deactivate user.', 500);
         }
     }
 
-    /**
-     * PATCH /users/{id}/reactivate
-     * Reactivate a user.
-     */
-    public function reactivate($id): void
-    {
+    public function reactivate($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
         try {
-            $this->service->reactivate((int) $id);
-            $this->json(['message' => 'User reactivated.'], 200);
+            $this->service->reactivate($id);
+            Response::json(['message' => 'User reactivated.']);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 404);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to reactivate user.', 500);
         }
     }
 
-    /**
-     * POST /users/{id}/reset-password
-     * Reset a user's password (admin action).
-     */
-    public function resetPassword($id): void
-    {
+    public function resetPassword($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
+        $data        = $this->input();
+        $newPassword = (string) ($data['password'] ?? $data['new_password'] ?? '');
+
         try {
-            $data = $this->input();
-            $newPassword = trim($data['password'] ?? '');
-
-            if ($newPassword === '') {
-                $this->json(['error' => 'New password is required.'], 422);
-                return;
-            }
-
-            $this->service->resetPassword((int) $id, $newPassword);
-
-            $this->json(['message' => 'Password reset successfully.'], 200);
+            $this->service->resetPassword($id, $newPassword);
+            Response::json(['message' => 'Password reset successfully.']);
         } catch (InvalidArgumentException $e) {
-            $this->json(['error' => $e->getMessage()], 422);
+            Response::error($e->getMessage(), 422);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 404);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to reset password.', 500);
         }
     }
 
-    /**
-     * POST /users/{id}/change-password
-     * Change a user's password (user action, requires current password).
-     */
-    public function changePassword($id): void
-    {
+    public function changePassword($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
+        $data    = $this->input();
+        $current = (string) ($data['current_password'] ?? '');
+        $new     = (string) ($data['new_password']     ?? '');
+
         try {
-            $data = $this->input();
-            $current     = trim($data['current_password'] ?? '');
-            $newPassword = trim($data['new_password'] ?? '');
-
-            if ($current === '' || $newPassword === '') {
-                $this->json(['error' => 'Current and new passwords are required.'], 422);
-                return;
-            }
-
-            $this->service->changePassword((int) $id, $current, $newPassword);
-
-            $this->json(['message' => 'Password changed successfully.'], 200);
+            $this->service->changePassword($id, $current, $new);
+            Response::json(['message' => 'Password changed successfully.']);
         } catch (InvalidArgumentException $e) {
-            $this->json(['error' => $e->getMessage()], 422);
+            Response::error($e->getMessage(), 422);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            Response::error($e->getMessage(), 400);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to change password.', 500);
         }
     }
 
-    /**
-     * POST /users/{id}/link-employee
-     * Link a user to an employee record.
-     */
-    public function linkEmployee($id): void
-    {
+    public function linkEmployee($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id         = (int) $id;
+        $data       = $this->input();
+        $employeeId = (int) ($data['employee_id'] ?? 0);
+
+        if ($id < 1 || $employeeId < 1) {
+            Response::error('User ID and employee_id are required.', 422);
+        }
+
         try {
-            $data = $this->input();
-            $employeeId = $data['employee_id'] ?? null;
-
-            if ($employeeId === null || $employeeId === '') {
-                $this->json(['error' => 'employee_id is required.'], 422);
-                return;
-            }
-
-            $this->service->linkToEmployee((int) $id, (int) $employeeId);
-
-            $this->json(['message' => 'User linked to employee.'], 200);
+            $this->service->linkToEmployee($id, $employeeId);
+            Response::json(['message' => 'User linked to employee.']);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 409);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to link user.', 500);
         }
     }
 
-    /**
-     * POST /users/{id}/unlink-employee
-     * Unlink a user from their employee record.
-     */
-    public function unlinkEmployee($id): void
-    {
+    public function unlinkEmployee($id): void {
+        AuthMiddleware::requireLogin();
+        $this->requireMethod('POST');
+
+        $id = (int) $id;
+        if ($id < 1) {
+            Response::error('Invalid user ID.', 422);
+        }
+
         try {
-            $this->service->unlinkFromEmployee((int) $id);
-            $this->json(['message' => 'User unlinked from employee.'], 200);
+            $this->service->unlinkFromEmployee($id);
+            Response::json(['message' => 'User unlinked from employee.']);
         } catch (DomainException $e) {
-            $this->json(['error' => $e->getMessage()], 404);
+            Response::error($e->getMessage(), 404);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 500);
+            Response::error('Failed to unlink user.', 500);
         }
     }
 
-    // ------------------------------------------------------------------
-    // Helpers — replace these with your framework's request/response.
-    // ------------------------------------------------------------------
+    public function usernameExists(): void {
+        AuthMiddleware::requireLogin();
 
-    /**
-     * Retrieve input data from the request.
-     * Adjust to use your framework's request object.
-     */
-    protected function input(): array
-    {
-        $raw = file_get_contents('php://input');
-        $json = json_decode($raw, true);
+        $username = trim((string) ($_GET['username'] ?? ''));
+        $exceptId = isset($_GET['except_id']) ? (int) $_GET['except_id'] : null;
 
-        if (is_array($json)) {
-            return $json;
+        if ($username === '') {
+            Response::error('username is required.', 422);
         }
 
-        return array_merge($_GET, $_POST);
+        Response::json([
+            'exists' => $this->service->usernameExists($username, $exceptId),
+        ]);
     }
 
-    /**
-     * Send a JSON response.
-     */
-    protected function json(array $payload, int $status = 200): void
-    {
-        http_response_code($status);
-        header('Content-Type: application/json');
-        echo json_encode($payload);
-        exit;
+    public function employeeIdExists(): void {
+        AuthMiddleware::requireLogin();
+
+        $employeeId = (int) ($_GET['employee_id'] ?? 0);
+        $exceptId   = isset($_GET['except_id']) ? (int) $_GET['except_id'] : null;
+
+        if ($employeeId < 1) {
+            Response::error('employee_id is required.', 422);
+        }
+
+        Response::json([
+            'exists' => $this->service->employeeIdExists($employeeId, $exceptId),
+        ]);
+    }
+
+    private function requireMethod(string $method): void {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== $method) {
+            Response::error('Method not allowed', 405);
+        }
+    }
+
+    private function input(): array {
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+
+        if (stripos($contentType, 'application/json') !== false) {
+            $raw  = file_get_contents('php://input');
+            $data = json_decode($raw, true);
+            return is_array($data) ? $data : [];
+        }
+
+        return $_POST;
+    }
+
+    private function publicUser(array $user): array {
+        unset($user['password_hash']);
+        return $user;
     }
 }

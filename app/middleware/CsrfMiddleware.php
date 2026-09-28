@@ -6,11 +6,6 @@ class CsrfMiddleware
     private const SESSION_KEY = 'csrf_token';
     private const FORM_FIELD  = '_token';
     private const HEADER_NAME = 'HTTP_X_CSRF_TOKEN';
-
-    /**
-     * 64 hex chars = 32 bytes of entropy. That's the recommendation
-     * from OWASP; anything less shortens the search space needlessly.
-     */
     private const TOKEN_BYTES = 32;
 
     /**

@@ -1,8 +1,7 @@
 <?php
 namespace App\Entity;
 
-class Deduction
-{
+class Deduction{
     private $id;
     private $code;
     private $name;
@@ -35,8 +34,7 @@ class Deduction
         $this->updated_at = $updated_at;
     }
 
-    public static function fromArray(array $row): self
-    {
+    public static function fromArray(array $row): self{
         return new self(
             $row['id'] ?? null,
             $row['code'] ?? null,

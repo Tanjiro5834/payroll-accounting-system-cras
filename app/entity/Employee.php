@@ -2,7 +2,6 @@
 namespace App\Entity;
 
 class Employee {
-    
     private $id;
     private $full_name;
     private $role;
@@ -120,8 +119,7 @@ class Employee {
         return $this->is_active;
     }
 
-    public function toArray(): array
-    {
+    public function toArray(): array{
         return [
             'id'                => $this->id,
             'full_name'         => $this->full_name,

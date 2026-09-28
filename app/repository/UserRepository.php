@@ -2,325 +2,257 @@
 namespace App\Repository;
 
 use App\Entity\User;
-
-use PDO;
-use Exception;
 use DomainException;
+use PDO;
 
-class UserRepository extends BaseRepository{
-    // Create
+class UserRepository extends BaseRepository {
+    private const PUBLIC_COLUMNS = 'id, username, role, employee_id, last_login, is_active, created_at, updated_at';
+    private const FULL_COLUMNS   = 'id, username, password_hash, role, employee_id, last_login, is_active, created_at, updated_at';
+
     public function create(User $user): int {
-        try{
-            $this->db->beginTransaction();
+        $stmt = $this->db->prepare(
+            "INSERT INTO users (username, password_hash, role, employee_id, last_login, is_active)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
 
-            $stmt = $this->db->prepare(
-                "INSERT INTO users
-                (username, password_hash, role, employee_id, 
-                last_login, is_active, created_at, updated_at)
-                VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?)"
-            );
-
-            $now = date('Y-m-d H:i:s');
+        try {
             $stmt->execute([
                 $user->getUsername(),
                 $user->getPasswordHash(),
                 $user->getRole(),
                 $user->getEmployeeId(),
                 $user->getLastLogin(),
-                $user->isActive() ? 1 : 0,
-                $user->getCreatedAt() ?? $now,
-                $user->getUpdatedAt() ?? $now,
+                $user->getIsActive() ? 1 : 0,
             ]);
-
-            $id = (int) $this->db->lastInsertId();
-            $this->db->commit();
-            return $id;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
+        } catch (\PDOException $e) {
             if ($e->getCode() === '23000') {
                 throw new DomainException('Username already exists.');
             }
             throw $e;
         }
+
+        return (int) $this->db->lastInsertId();
     }
 
-    // Read - Single
-    public function findById(int $id){
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
+    public function findById(int $id): ?array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . " FROM users WHERE id = ? LIMIT 1"
+        );
         $stmt->execute([$id]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result ?: null;
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    public function findByUsername($username) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
+    public function findByUsername(string $username): ?array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::FULL_COLUMNS . " FROM users WHERE username = ? LIMIT 1"
+        );
         $stmt->execute([$username]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result ?: null;
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    public function findByEmployeeId($employeeId) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE employee_id = ?");
+    public function findByEmployeeId(int $employeeId): ?array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . " FROM users WHERE employee_id = ? LIMIT 1"
+        );
         $stmt->execute([$employeeId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result ?: null;
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    public function findByUsernameOrEmail($username, $email) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
-        $stmt->execute([$username, $email]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    // Read - Multiple
-    public function findAll() {
-        $stmt = $this->db->prepare("SELECT * FROM users");
+    public function findAll(): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . " FROM users ORDER BY username"
+        );
         $stmt->execute();
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findAllActive() {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE is_active = ? ORDER BY created_at DESC");
+    public function findAllActive(): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . " FROM users WHERE is_active = 1 ORDER BY username"
+        );
         $stmt->execute();
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findAllByRole($role) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE role = ?");
+    public function findAllByRole(string $role): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . " FROM users WHERE role = ? ORDER BY username"
+        );
         $stmt->execute([$role]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function findAllByEmployeeIds(array $employeeIds): array {
-        if(empty($employeeIds)) return [];
-
-        $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
-
-        $sql = "SELECT * FROM users
-                WHERE employee_id IN ($placeholders)
-                ORDER BY created_at DESC";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(array_values($employeeIds));
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function search($query) {
-        $query = trim($query);
-
-        if ($query === '') return [];
-
-        $stmt = $this->db->prepare("SELECT id, username, role, employee_id, 
-                last_login, is_active, created_at, updated_at
-                FROM `users`
-                WHERE username    LIKE :term
-                OR employee_id LIKE :term
-                OR role        LIKE :term
-                ORDER BY created_at DESC");
-
-        $stmt->execute([':term' => '%' . $query . '%']);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // Update
-    public function update(User $user) : bool {
-        try{
-            $this->db->beginTransaction();
-
-            $stmt = $this->db->prepare(
-                "UPDATE users SET
-                username = ?,
-                password_hash = ?,
-                role = ?,
-                employee_id = ?,
-                last_login = ?,
-                is_active = ?
-                updated_at = NOW()
-                WHERE id = ?"
-            );
-
-            $stmt->execute([
-                $user->getUsername(),
-                $user->getPassword(),
-                $user->getRole(),
-                $user->getEmployeeId(),
-                $user->getLastLogin(),
-                (int) $user->getIsActive(),
-                $user->getId()
-            ]);
-
-            $stmt = $this->db->prepare(
-                "SELECT id, username, role, employee_id, last_login, is_active, created_at, updated_at
-                FROM users WHERE id = ?"
-            );
-
-            $id = $user->getId();
-            $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
-    }
-
-    public function updatePassword(int $id, string $passwordHash): bool {
-        try{
-            $this->db->beginTransaction();
-
-            $stmt = $this->db->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $stmt->execute([$id, $passwordHash]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
-    }
-
-    public function updateLastLogin(int $id): bool {
-        try{
-            $this->db->beginTransaction();
-
-            $stmt = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
-            $stmt->execute([$id]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
-    }
-
-    public function updateRole(int $id, string $role): bool {
-        try{
-            $this->db->beginTransaction();
-
-            $stmt = $this->db->prepare("UPDATE users SET role = ? WHERE id = ?");
-            $stmt->execute([$id, $role]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
-    }
-
-    public function updateStatus($id, $isActive) {
-        try{
-            $this->db->beginTransaction();
-
-            $stmt = $this->db->prepare("UPDATE users SET status = ? WHERE id = ?");
-            $stmt->execute([$id, $status]);
-            $this->db->commit();
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
-    }
-
-    // Link / Unlink
-    public function linkToEmployee(int $userId, int $employeeId): bool {
-        $checkLink = $this->db->prepare("SELECT id FROM users WHERE employee_id = ? AND id != ? LIMIT 1");
-        $checkLink->execute([$employeeId, $userId]);
-
-        if($checkLink->fetchColumn()){
-            throw new \RuntimeException('Employee is already linked to another user');
+        if (empty($employeeIds)) {
+            return [];
         }
 
-        $checkExist = $this->db->prepare("SELECT 1 FROM `employees` WHERE id = ? LIMIT 1");
-        $checkExist->execute([$employeeId]);
-
-        if (!$checkExist->fetchColumn()) {
-            throw new \RuntimeException('Employee not found');
-        }
+        $ids = array_values(array_unique(array_map('intval', $employeeIds)));
+        $in  = implode(', ', array_fill(0, count($ids), '?'));
 
         $stmt = $this->db->prepare(
-            "UPDATE users SET employee_id = ?, 
-            updated_at  = NOW() 
-            WHERE id = ?
-            AND (employee_id IS NULL OR employee_id != ?)
-            ");
+            "SELECT " . self::PUBLIC_COLUMNS . "
+             FROM users
+             WHERE employee_id IN ({$in})
+             ORDER BY username"
+        );
+        $stmt->execute($ids);
 
-        $stmt->execute([$employeeId, $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function search(string $query, int $limit = 100): array {
+        $query = trim($query);
+        if ($query === '') {
+            return [];
+        }
+
+        $limit = max(1, min(500, $limit));
+        $term  = '%' . $query . '%';
+
+        $stmt = $this->db->prepare(
+            "SELECT " . self::PUBLIC_COLUMNS . "
+             FROM users
+             WHERE username LIKE :term1
+                OR role     LIKE :term2
+             ORDER BY username
+             LIMIT :lim"
+        );
+        $stmt->bindValue(':term1', $term, PDO::PARAM_STR);
+        $stmt->bindValue(':term2', $term, PDO::PARAM_STR);
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function update(User $user): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET
+                username      = :username,
+                password_hash = :password_hash,
+                role          = :role,
+                employee_id   = :employee_id,
+                last_login    = :last_login,
+                is_active     = :is_active
+             WHERE id = :id"
+        );
+        $stmt->execute([
+            ':username'      => $user->getUsername(),
+            ':password_hash' => $user->getPasswordHash(),
+            ':role'          => $user->getRole(),
+            ':employee_id'   => $user->getEmployeeId(),
+            ':last_login'    => $user->getLastLogin(),
+            ':is_active'     => $user->getIsActive() ? 1 : 0,
+            ':id'            => $user->getId(),
+        ]);
+
         return $stmt->rowCount() > 0;
     }
 
-    public function unlinkFromEmployee(int $userId) {
-        $check = $this->db->prepare(
-            "SELECT employee_id FROM `users` WHERE id = :user_id LIMIT 1"
+    public function updatePassword(int $id, string $passwordHash): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET password_hash = ? WHERE id = ?"
         );
-        $check->execute([':user_id' => $userId]);
-        $current = $check->fetchColumn();
+        $stmt->execute([$passwordHash, $id]);
 
-        // User doesn't exist
-        if ($current === false) {
-            throw new \RuntimeException('User not found');
-        }
-
-        $stmt = $this->db->prepare("UPDATE users SET employee_id = NULL, updated_at  = NOW() WHERE id = ?");
-        $stmt->execute([$id, $status]);
-        $this->db->commit();
+        return $stmt->rowCount() > 0;
     }
 
-    // Delete
+    public function updateLastLogin(int $id): bool {
+        $stmt = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function updateRole(int $id, string $role): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET role = ? WHERE id = ? AND role <> ?"
+        );
+        $stmt->execute([$role, $id, $role]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function updateStatus(int $id, bool $isActive): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET is_active = ? WHERE id = ? AND is_active <> ?"
+        );
+        $stmt->execute([$isActive ? 1 : 0, $id, $isActive ? 1 : 0]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function linkToEmployee(int $userId, int $employeeId): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users
+             SET employee_id = :employee_id
+             WHERE id = :user_id
+               AND (employee_id IS NULL OR employee_id <> :employee_id_guard)"
+        );
+        $stmt->execute([
+            ':employee_id'       => $employeeId,
+            ':user_id'           => $userId,
+            ':employee_id_guard' => $employeeId,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function unlinkFromEmployee(int $userId): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET employee_id = NULL WHERE id = ? AND employee_id IS NOT NULL"
+        );
+        $stmt->execute([$userId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
     public function delete(int $id): bool {
-        try{
-            $this->db->beginTransaction();
+        $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$id]);
 
-            $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
-            $stmt->execute([$id]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
+        return $stmt->rowCount() > 0;
     }
 
-    public function deactivate(int $id) {
-        try{
-            $this->db->beginTransaction();
+    public function deactivate(int $id): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET is_active = 0 WHERE id = ? AND is_active = 1"
+        );
+        $stmt->execute([$id]);
 
-            $stmt = $this->db->prepare("UPDATE users SET is_active = 0 WHERE id = ?");
-            $stmt->execute([$id]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
+        return $stmt->rowCount() > 0;
     }
 
-    public function reactivate(int $id) {
-        try{
-            $this->db->beginTransaction();
+    public function reactivate(int $id): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE users SET is_active = 1 WHERE id = ? AND is_active = 0"
+        );
+        $stmt->execute([$id]);
 
-            $stmt = $this->db->prepare("UPDATE users SET is_active = 1 WHERE id = ?");
-            $stmt->execute([$id]);
-            $this->db->commit();
-            return true;
-        }catch(Exception $e){
-            if($this->db->inTransaction()) $this->db->rollback();
-            throw $e;
-        }
+        return $stmt->rowCount() > 0;
     }
 
-    // Checks
-    public function userExists(int $id): bool{
+    public function userExists(int $id): bool {
         $stmt = $this->db->prepare("SELECT 1 FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
+
         return $stmt->fetchColumn() !== false;
     }
 
-    public function usernameExists(string $username, int $exceptId = null): bool {
-        $sql = "SELECT 1 FROM users WHERE username = ?";
+    public function usernameExists(string $username, ?int $exceptId = null): bool {
+        $sql    = "SELECT 1 FROM users WHERE username = ?";
         $params = [$username];
 
         if ($exceptId !== null) {
-            $sql .= " AND id != ?";
+            $sql .= " AND id <> ?";
             $params[] = $exceptId;
         }
 
@@ -328,15 +260,16 @@ class UserRepository extends BaseRepository{
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return (int) $stmt->fetchColumn() > 0;
+
+        return $stmt->fetchColumn() !== false;
     }
 
-    public function employeeIdExists(int $employeeId, int $exceptId = null) {
-        $sql = "SELECT 1 FROM users WHERE employee_id = ?";
+    public function employeeIdExists(int $employeeId, ?int $exceptId = null): bool {
+        $sql    = "SELECT 1 FROM users WHERE employee_id = ?";
         $params = [$employeeId];
 
         if ($exceptId !== null) {
-            $sql .= " AND id != ?";
+            $sql .= " AND id <> ?";
             $params[] = $exceptId;
         }
 
@@ -344,25 +277,28 @@ class UserRepository extends BaseRepository{
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return (int) $stmt->fetchColumn() > 0;
+
+        return $stmt->fetchColumn() !== false;
     }
 
-    // Counters
-    public function countAll() {
+    public function countAll(): int {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM users");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return (int) $stmt->fetchColumn();
     }
 
-    public function countActive() {
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE is_active = 1 ORDER BY username DESC");
+    public function countActive(): int {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE is_active = 1");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return (int) $stmt->fetchColumn();
     }
 
-    public function countByRole($role) {
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE role = ? ORDER BY username DESC");
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    public function countByRole(string $role): int {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE role = ?");
+        $stmt->execute([$role]);
+
+        return (int) $stmt->fetchColumn();
     }
 }

@@ -1,124 +1,197 @@
 <?php
 namespace App\Repository;
 
-class EmployeeDeductionRepository extends BaseRepository{
+use App\Entity\EmployeeDeduction;
+use PDO;
+
+class EmployeeDeductionRepository extends BaseRepository {
+    private const COLUMNS = 'ed.id, ed.employee_id, ed.deduction_id, ed.amount,
+                             ed.effective_from, ed.effective_to, ed.is_active,
+                             ed.created_at, ed.updated_at';
+
+    private const WITH_DEDUCTION = self::COLUMNS . ',
+                                   d.code AS deduction_code,
+                                   d.name AS deduction_name,
+                                   d.type AS deduction_type,
+                                   d.value AS deduction_value,
+                                   d.is_mandatory,
+                                   d.is_active AS deduction_is_active';
+
+    public function findById(int $id): ?array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::COLUMNS . " FROM employee_deductions ed WHERE ed.id = ? LIMIT 1"
+        );
+        $stmt->execute([$id]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
     public function findByEmployee(int $employeeId): array {
-        $stmt = $this->db->prepare("SELECT * FROM employee_deductions WHERE employee_id = ?");
+        $stmt = $this->db->prepare(
+            "SELECT " . self::WITH_DEDUCTION . "
+             FROM employee_deductions ed
+             INNER JOIN deductions d ON d.id = ed.deduction_id
+             WHERE ed.employee_id = ?
+             ORDER BY d.name"
+        );
         $stmt->execute([$employeeId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
+
+    public function findActiveByEmployee(int $employeeId, string $onDate): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::WITH_DEDUCTION . "
+             FROM employee_deductions ed
+             INNER JOIN deductions d ON d.id = ed.deduction_id
+             WHERE ed.employee_id = :employee_id
+               AND ed.is_active = 1
+               AND ed.effective_from <= :on_date
+               AND (ed.effective_to IS NULL OR ed.effective_to >= :on_date)
+             ORDER BY d.name"
+        );
+        $stmt->execute([
+            ':employee_id' => $employeeId,
+            ':on_date'     => $onDate,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findByEmployeeAndPeriod(int $employeeId, string $start, string $end): array {
-        $stmt = $this->db->prepare("SELECT ed.*, d.name AS deduction_name, d.code AS deduction_code
-            FROM employee_deductions ed
-            INNER JOIN deductions d ON d.id = ed.deduction_id
-            WHERE ed.employee_id = ?
-              AND ed.is_active = 1
-              AND ed.effective_from <= ?
-              AND (ed.effective_to IS NULL OR ed.effective_to >= ?)
-            ORDER BY d.name ASC");
+        $stmt = $this->db->prepare(
+            "SELECT " . self::WITH_DEDUCTION . "
+             FROM employee_deductions ed
+             INNER JOIN deductions d ON d.id = ed.deduction_id
+             WHERE ed.employee_id = :employee_id
+               AND ed.is_active = 1
+               AND ed.effective_from <= :end
+               AND (ed.effective_to IS NULL OR ed.effective_to >= :start)
+             ORDER BY d.name"
+        );
+        $stmt->execute([
+            ':employee_id' => $employeeId,
+            ':start'       => $start,
+            ':end'         => $end,
+        ]);
 
-        $stmt->execute([$employeeId, $start, $end]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create(array $data): int {
-        try {
-            $this->db->beginTransaction();
+    public function findByDeduction(int $deductionId): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::COLUMNS . "
+             FROM employee_deductions ed
+             WHERE ed.deduction_id = ?
+             ORDER BY ed.effective_from DESC"
+        );
+        $stmt->execute([$deductionId]);
 
-            $sql = "INSERT INTO employee_deductions (
-                        employee_id,
-                        deduction_id,
-                        amount,
-                        effective_from,
-                        effective_to,
-                        is_active
-                    ) VALUES (
-                        :employee_id,
-                        :deduction_id,
-                        :amount,
-                        :effective_from,
-                        :effective_to,
-                        :is_active
-                    )";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                'employee_id'    => $data['employee_id'],
-                'deduction_id'   => $data['deduction_id'],
-                'amount'         => $data['amount'] ?? null,
-                'effective_from' => $data['effective_from'],
-                'effective_to'   => $data['effective_to'] ?? null,
-                'is_active'      => $data['is_active'] ?? 1,
-            ]);
-
-            $newId = (int) $this->db->lastInsertId();
-            $this->db->commit();
-
-            return $newId;
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            throw $e;
-        }
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function update(int $id, array $data): bool {
-        try {
-            $this->db->beginTransaction();
+    public function findAll(): array {
+        $stmt = $this->db->prepare(
+            "SELECT " . self::WITH_DEDUCTION . "
+             FROM employee_deductions ed
+             INNER JOIN deductions d ON d.id = ed.deduction_id
+             ORDER BY ed.employee_id, d.name"
+        );
+        $stmt->execute();
 
-            $sql = "UPDATE employee_deductions 
-                    SET deduction_id   = :deduction_id,
-                        amount         = :amount,
-                        effective_from = :effective_from,
-                        effective_to   = :effective_to,
-                        is_active      = :is_active
-                    WHERE id = :id";
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
-            $stmt = $this->db->prepare($sql);
+    public function create(EmployeeDeduction $employeeDeduction): int {
+        $stmt = $this->db->prepare(
+            "INSERT INTO employee_deductions
+                (employee_id, deduction_id, amount, effective_from, effective_to, is_active)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([
+            $employeeDeduction->getEmployeeId(),
+            $employeeDeduction->getDeductionId(),
+            $employeeDeduction->getAmount(),
+            $employeeDeduction->getEffectiveFrom(),
+            $employeeDeduction->getEffectiveTo(),
+            $employeeDeduction->getIsActive() ? 1 : 0,
+        ]);
 
-            $stmt->execute([
-                'id'             => $id,
-                'deduction_id'   => $data['deduction_id'],
-                'amount'         => $data['amount'] ?? null,
-                'effective_from' => $data['effective_from'],
-                'effective_to'   => $data['effective_to'] ?? null,
-                'is_active'      => $data['is_active'] ?? 1,
-            ]);
+        return (int) $this->db->lastInsertId();
+    }
 
-            $this->db->commit();
-            return true;
-        } catch (\PDOException $e) {
-            if($this->db->inTransaction()) $this->db->rollback();
-            error_log("Error updating employee deduction {$id}: " . $e->getMessage());
-            return false;
-        }
+    public function update(int $id, EmployeeDeduction $employeeDeduction): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE employee_deductions SET
+                deduction_id   = :deduction_id,
+                amount         = :amount,
+                effective_from = :effective_from,
+                effective_to   = :effective_to,
+                is_active      = :is_active
+             WHERE id = :id"
+        );
+        $stmt->execute([
+            ':deduction_id'   => $employeeDeduction->getDeductionId(),
+            ':amount'         => $employeeDeduction->getAmount(),
+            ':effective_from' => $employeeDeduction->getEffectiveFrom(),
+            ':effective_to'   => $employeeDeduction->getEffectiveTo(),
+            ':is_active'      => $employeeDeduction->getIsActive() ? 1 : 0,
+            ':id'             => $id,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function deactivate(int $id): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE employee_deductions SET is_active = 0 WHERE id = ? AND is_active = 1"
+        );
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
     }
 
     public function delete(int $id): bool {
-        try {
-            $stmt = $this->db->prepare("DELETE FROM employee_deductions WHERE id = ?");
-            return $stmt->execute([$id]);
-        } catch (\PDOException $e) {
-            error_log("Error deleting employee deduction {$id}: " . $e->getMessage());
-            return false;
-        }
+        $stmt = $this->db->prepare("DELETE FROM employee_deductions WHERE id = ?");
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
     }
 
-    public function sumByEmployeeAndPeriod(int $employeeId, string $start, string $end): float {
-        $sql = "SELECT SUM(amount) AS total_deductions
-                FROM employee_deductions
-                WHERE employee_id = ?
-                AND is_active = 1
-                AND effective_from <= ?
-                AND (effective_to IS NULL OR effective_to >= ?)";
+    public function sumByEmployeeAndPeriod(int $employeeId, string $start, string $end): string {
+        $stmt = $this->db->prepare(
+            "SELECT COALESCE(SUM(amount), 0)
+             FROM employee_deductions
+             WHERE employee_id = :employee_id
+               AND is_active = 1
+               AND effective_from <= :end
+               AND (effective_to IS NULL OR effective_to >= :start)"
+        );
+        $stmt->execute([
+            ':employee_id' => $employeeId,
+            ':start'       => $start,
+            ':end'         => $end,
+        ]);
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$employeeId, $start, $end]);
+        return (string) $stmt->fetchColumn();
+    }
 
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    public function hasActiveForDeduction(int $employeeId, int $deductionId, string $onDate): bool {
+        $stmt = $this->db->prepare(
+            "SELECT 1 FROM employee_deductions
+             WHERE employee_id = :employee_id
+               AND deduction_id = :deduction_id
+               AND is_active = 1
+               AND effective_from <= :on_date
+               AND (effective_to IS NULL OR effective_to >= :on_date)
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':employee_id'  => $employeeId,
+            ':deduction_id' => $deductionId,
+            ':on_date'      => $onDate,
+        ]);
 
-        return (float) ($result['total_deductions'] ?? 0.00);
+        return $stmt->fetchColumn() !== false;
     }
 }

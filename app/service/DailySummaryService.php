@@ -1,335 +1,377 @@
 <?php
 namespace App\Service;
 
-use App\Repository\DailySummaryRepository;
-use App\Repository\EmployeeRepository;
-use App\Repository\TimePunchRepository;
+use App\Entity\LeaveRequest;
+use App\Repository\LeaveRequestRepository;
 use DateTimeImmutable;
-use DateInterval;
 use Exception;
+use InvalidArgumentException;
 
-class DailySummaryService{
-    private DailySummaryRepository $repository;
-    private TimePunchRepository $punchRepository;
-    private EmployeeRepository $employeeRepository;
+class LeaveRequestService {
+    private const ALLOWED_LEAVE_TYPES = [
+        'vacation',
+        'sick',
+        'maternity',
+        'paternity',
+        'bereavement',
+        'unpaid',
+        'emergency',
+    ];
 
-    private const SHIFT_START   = '09:00:00';
-    private const SHIFT_END     = '18:00:00';
-    private const LUNCH_START   = '12:00:00';
-    private const LUNCH_END     = '13:00:00';
-    private const NIGHT_START   = '22:00:00';
-    private const NIGHT_END     = '06:00:00';
-    private const STANDARD_DAY  = 8.0;
+    private const ALLOWED_STATUSES = [
+        'pending',
+        'approved',
+        'rejected',
+        'cancelled',
+    ];
 
-    public function __construct(
-        ?DailySummaryRepository $repository = null,
-        ?TimePunchRepository    $punchRepository = null,
-        ?EmployeeRepository     $employeeRepository = null
-    ) {
-        $this->repository  = $repository  ?? new DailySummaryRepository();
-        $this->punchRepository  = $punchRepository ?? new TimePunchRepository();
-        $this->employeeRepository = $employeeRepository ?? new EmployeeRepository();
+    private const BLOCKING_STATUSES = [
+        'pending',
+        'approved',
+    ];
+
+    private const MAX_REASON_LENGTH = 1000;
+
+    private LeaveRequestRepository $repository;
+
+    public function __construct(?LeaveRequestRepository $repository = null) {
+        $this->repository = $repository ?? new LeaveRequestRepository();
     }
 
-    public function computeForDate(int $employeeId, string $date): array {
-        $punches = $this->repository->findByEmployeeAndDate($employeeId, $date);
-        $summary = $this->buildSummary($employeeId, $date, $punches);
-
-        $this->repository->upsert($summary);
-        return $summary;
+    public function getAll(): array {
+        return $this->repository->findAll();
     }
 
-    public function computeForDateRange(int $employeeId, string $start, string $end): int {
-        $this->assertDateRange($start, $end);
-        $count = 0;
-        $currentDate = new DateTimeImmutable($start);
-        $endDate = new DateTimeImmutable($end);
-
-        while($currentDate <= $endDate){
-            $this->computeForDate($employeeId, $current->format('Y-m-d'));
-            $count++;
-            $currentDate = $currenDate->add(new DateInterval('P1D'));
-        }
-
-        return $count;
+    public function getById(int $id): ?array {
+        return $this->repository->findById($id);
     }
 
-    public function computeForAllEmployees(string $date): int {
-        $employees = $this->employeeRepository->findAllActive();
-        $count = 0;
-
-        foreach ($employees as $emp) {
-            $this->computeForDate((int) $emp['id'], $date);
-            $count++;
-        }
-
-        return $count;
+    public function getByEmployee(int $employeeId): array {
+        return $this->repository->findByEmployee($employeeId);
     }
 
-    public function computeForAllEmployeesInRange(string $start, string $end): int {
-        $this->assertDateRange($start, $end);
-
-        $employees = $this->employeeRepository->findAllActive();
-        $count = 0;
-        $current = new DateTimeImmutable($start);
-        $endDt = new DateTimeImmutable($end);
-
-        while ($current <= $endDt) {
-            $date = $current->format('Y-m-d');
-            foreach ($employees as $emp) {
-                $this->computeForDate((int) $emp['id'], $date);
-                $count++;
-            }
-            $current = $current->add(new DateInterval('P1D'));
-        }
-
-        return $count;
+    public function getByStatus(string $status): array {
+        return $this->repository->findByStatus($status);
     }
 
-    public function recompute(int $employeeId, string $date): array {
-        try {
-            $this->repository->deleteByEmployeeAndDate($employeeId, $date);
-        } catch (Exception $e) {
-            // Non-fatal if no row existed — log and continue
-            error_log("recompute: delete skipped for {$employeeId}/{$date}: " . $e->getMessage());
-        }
+    public function getByDateRange(string $start, string $end): array {
+        $this->assertValidDate($start, 'start');
+        $this->assertValidDate($end, 'end');
+        $this->assertDateOrder($start, $end);
 
-        return $this->computeForDate($employeeId, $date);
+        return $this->repository->findByDateRange($start, $end);
     }
 
-    public function calculateRegularHours(array $punches): float {
-        $pairs = $this->pairPunches($punches);
-        if (empty($pairs)) return 0.0;
-
-        $totalSeconds = 0;
-
-        foreach ($pairs as [$in, $out]) {
-            $shiftStart = new DateTimeImmutable($in->format('Y-m-d') . ' ' . self::SHIFT_START);
-            $shiftEnd   = new DateTimeImmutable($in->format('Y-m-d') . ' ' . self::SHIFT_END);
-
-            $start = max($in,  $shiftStart);
-            $end   = min($out, $shiftEnd);
-
-            if ($end <= $start) continue;
-
-            $seconds = $end->getTimestamp() - $start->getTimestamp();
-
-            // Subtract overlap with unpaid lunch
-            $lunchStart = new DateTimeImmutable($in->format('Y-m-d') . ' ' . self::LUNCH_START);
-            $lunchEnd   = new DateTimeImmutable($in->format('Y-m-d') . ' ' . self::LUNCH_END);
-
-            $overlapStart = max($start, $lunchStart);
-            $overlapEnd   = min($end,   $lunchEnd);
-
-            if ($overlapEnd > $overlapStart) {
-                $seconds -= ($overlapEnd->getTimestamp() - $overlapStart->getTimestamp());
-            }
-
-            $totalSeconds += max(0, $seconds);
+    public function create(array $data) {
+        $errors = $this->validateLeaveRequestData($data);
+        if (!empty($errors)) {
+            throw new InvalidArgumentException("Validation failed: " . implode(', ', $errors));
         }
 
-        return round($totalSeconds / 3600, 2);
+        $leaveRequest = LeaveRequest::fromArray($data);
+        return $this->repository->create($leaveRequest);
     }
 
-    public function calculateOvertimeHours(array $punches): float {
-        $pairs = $this->pairPunches($punches);
-        if (empty($pairs)) {
-            return 0.0;
+    public function update(int $id, array $data): bool {
+        $this->assertExists($id);
+
+        $errors = $this->validateLeaveRequestData($data, true);
+        if (!empty($errors)) {
+            throw new InvalidArgumentException("Validation failed: " . implode(', ', $errors));
         }
 
-        $totalSeconds = 0;
-
-        foreach ($pairs as [$in, $out]) {
-            $shiftEnd = new DateTimeImmutable($in->format('Y-m-d') . ' ' . self::SHIFT_END);
-
-            $start = max($in, $shiftEnd);
-            $end   = $out;
-
-            if ($end > $start) {
-                $totalSeconds += ($end->getTimestamp() - $start->getTimestamp());
-            }
-        }
-
-        return round($totalSeconds / 3600, 2);
+        return $this->repository->update($id, $data) > 0;
     }
 
-    public function calculateNightDiffHours(array $punches): float {
-        $pairs = $this->pairPunches($punches);
-        if (empty($pairs)) {
-            return 0.0;
-        }
-
-        $totalSeconds = 0;
-        foreach ($pairs as [$in, $out]) {
-            $totalSeconds += $this->overlapSecondsWithNightWindow($in, $out);
-        }
-
-        return round($totalSeconds / 3600, 2);
+    public function delete(int $id): bool {
+        $this->assertExists($id);
+        return $this->repository->delete($id);
     }
 
-    public function calculateLateMinutes(array $punches, string $date): int {
-        $firstIn = $this->firstPunchOfType($punches, 'in');
-        if ($firstIn === null) {
-            return 0;   // no punches = absent, not late
+    public function approve(int $id, string $approvedBy): bool {
+        $this->assertExists($id);
+        return $this->repository->approveLeaveRequest($id, $approvedBy);
+    }
+
+    public function reject(int $id, string $approvedBy, ?string $reason = null): bool {
+        $request = $this->getById($id);
+        if (!$request) {
+            throw new Exception("Leave request not found");
         }
 
-        $shiftStart = new DateTimeImmutable($date . ' ' . self::SHIFT_START);
-        if ($firstIn <= $shiftStart) {
+        if ($request['status'] !== 'pending') {
+            throw new Exception("Cannot reject — request is already {$request['status']}.");
+        }
+
+        if ($reason !== null && trim($reason) === '') {
+            $reason = null;
+        }
+
+        return $this->repository->reject($id, $approvedBy, $reason);
+    }
+
+    public function cancel(int $id): bool {
+        $this->assertExists($id);
+        return $this->repository->cancel($id);
+    }
+
+    public function hasApprovedLeave(int $employeeId, string $date): bool {
+        $this->assertValidDate($date, 'date');
+        return $this->repository->hasApprovedLeave($employeeId, $date);
+    }
+
+    public function getLeaveDays(int $id): int {
+        $request = $this->repository->findById($id);
+        if (!$request) {
             return 0;
         }
 
-        $diff = $firstIn->getTimestamp() - $shiftStart->getTimestamp();
-        return (int) floor($diff / 60);
+        $start = new DateTimeImmutable($request['start_date']);
+        $end   = new DateTimeImmutable($request['end_date']);
+
+        return (int) $start->diff($end)->days + 1;
     }
 
-    public function calculateUndertimeMinutes(array $punches, string $date): int {
-        $firstIn = $this->firstPunchOfType($punches, 'in');
-        if ($firstIn === null) {
-            return 0;   // absent, not undertime
+    public function countByEmployeeAndYear(int $employeeId, string $year): int {
+        if (!preg_match('/^\d{4}$/', $year)) {
+            throw new InvalidArgumentException("Year must be a 4-digit string, got: {$year}");
         }
 
-        $lastOut = $this->lastPunchOfType($punches, 'out');
-        if ($lastOut === null) {
-            return 0;   // still clocked in / missing punch — handle separately
-        }
-
-        $shiftEnd = new DateTimeImmutable($date . ' ' . self::SHIFT_END);
-        if ($lastOut >= $shiftEnd) {
-            return 0;
-        }
-
-        $diff = $shiftEnd->getTimestamp() - $lastOut->getTimestamp();
-        return (int) floor($diff / 60);
+        return $this->repository->countByEmployeeAndYear($employeeId, $year);
     }
 
-    public function getSummary(int $employeeId, string $date): ?array {
-        $rows = $this->repository->findByPeriod($employeeId, $date, $date);
-        return $rows[0] ?? null;
-    }
+    public function checkOverlap(int $employeeId, string $start, string $end, ?int $exceptId = null): bool {
+        $this->assertValidDate($start, 'start');
+        $this->assertValidDate($end, 'end');
+        $this->assertDateOrder($start, $end);
 
-    public function getSummaryRange(int $employeeId, string $start, string $end): array {
-        $this->assertDateRange($start, $end);
-        return $this->repository->findByPeriod($employeeId, $start, $end);
-    }
+        $existing = $this->repository->findByEmployee($employeeId);
 
-    private function pairPunches(array $punches): array{
-        usort($punches, fn($a, $b) => strtotime($a['punch_time']) <=> strtotime($b['punch_time']));
+        foreach ($existing as $row) {
+            if ($exceptId !== null && (int) $row['id'] === $exceptId) {
+                continue;
+            }
 
-        $pairs = [];
-        $currentIn = null;
+            if (!in_array($row['status'], self::BLOCKING_STATUSES, true)) {
+                continue;
+            }
 
-        foreach ($punches as $p) {
-            $time = new DateTimeImmutable($p['punch_time']);
-
-            if ($p['punch_type'] === 'in') {
-                $currentIn = $time;   // overwrite if in-in without out
-            } elseif ($p['punch_type'] === 'out' && $currentIn !== null) {
-                // Handle cross-midnight: if out <= in, assume next day
-                if ($time <= $currentIn) {
-                    $time = $time->add(new DateInterval('P1D'));
-                }
-                $pairs[] = [$currentIn, $time];
-                $currentIn = null;
+            if ($this->rangesOverlap($start, $end, $row['start_date'], $row['end_date'])) {
+                throw new Exception(sprintf(
+                    'Date range %s to %s overlaps with existing %s leave (%s to %s).',
+                    $start,
+                    $end,
+                    $row['status'],
+                    $row['start_date'],
+                    $row['end_date']
+                ));
             }
         }
 
-        return $pairs;
+        return false;
     }
 
-    private function firstPunchOfType(array $punches, string $type): ?DateTimeImmutable{
-        $times = [];
-        foreach ($punches as $p) {
-            if ($p['punch_type'] === $type) {
-                $times[] = new DateTimeImmutable($p['punch_time']);
+    private function assertExists(int $id): void {
+        if ($this->getById($id) === null) {
+            throw new Exception("Leave request not found");
+        }
+    }
+
+    private function assertValidDate(string $date, string $field): void {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $date);
+        if (!$dt || $dt->format('Y-m-d') !== $date) {
+            throw new InvalidArgumentException("Invalid date for {$field}: {$date}");
+        }
+    }
+
+    private function assertDateOrder(string $start, string $end): void {
+        if ($start > $end) {
+            throw new InvalidArgumentException("Start date must be before or equal to end date.");
+        }
+    }
+
+    private function rangesOverlap(string $startA, string $endA, string $startB, string $endB): bool {
+        return $startA <= $endB && $endA >= $startB;
+    }
+
+    private function validateLeaveRequestData(array $data, bool $isUpdate = false): array {
+        $errors = [];
+
+        $this->validateEmployeeId($data, $isUpdate, $errors);
+        $this->validateLeaveType($data, $isUpdate, $errors);
+        $this->validateStartDate($data, $isUpdate, $errors);
+        $this->validateEndDate($data, $isUpdate, $errors);
+        $this->validateDateRange($data, $errors);
+        $this->validateReason($data, $errors);
+        $this->validateStatus($data, $isUpdate, $errors);
+        $this->validateApprovedBy($data, $errors);
+        $this->validateApprovedAt($data, $errors);
+        $this->validateId($data, $errors);
+
+        return $errors;
+    }
+
+    private function validateEmployeeId(array $data, bool $isUpdate, array &$errors): void {
+        if ($isUpdate && !array_key_exists('employee_id', $data)) {
+            return;
+        }
+
+        $employeeId = $data['employee_id'] ?? null;
+
+        if ($employeeId === null || $employeeId === '') {
+            $errors['employee_id'] = 'Employee is required.';
+        } elseif (!$this->isPositiveInt($employeeId)) {
+            $errors['employee_id'] = 'Employee ID must be a positive integer.';
+        }
+    }
+
+    private function validateLeaveType(array $data, bool $isUpdate, array &$errors): void {
+        if ($isUpdate && !array_key_exists('leave_type', $data)) {
+            return;
+        }
+
+        $type = trim((string) ($data['leave_type'] ?? ''));
+
+        if ($type === '') {
+            $errors['leave_type'] = 'Leave type is required.';
+        } elseif (!in_array($type, self::ALLOWED_LEAVE_TYPES, true)) {
+            $errors['leave_type'] = 'Leave type must be one of: ' . implode(', ', self::ALLOWED_LEAVE_TYPES) . '.';
+        }
+    }
+
+    private function validateStartDate(array $data, bool $isUpdate, array &$errors): void {
+        if ($isUpdate && !array_key_exists('start_date', $data)) {
+            return;
+        }
+
+        $startDate = $data['start_date'] ?? null;
+
+        if (empty($startDate)) {
+            $errors['start_date'] = 'Start date is required.';
+        } elseif (!$this->isValidYmd((string) $startDate)) {
+            $errors['start_date'] = 'Start date must be a valid YYYY-MM-DD.';
+        }
+    }
+
+    private function validateEndDate(array $data, bool $isUpdate, array &$errors): void {
+        if ($isUpdate && !array_key_exists('end_date', $data)) {
+            return;
+        }
+
+        $endDate = $data['end_date'] ?? null;
+
+        if (empty($endDate)) {
+            $errors['end_date'] = 'End date is required.';
+        } elseif (!$this->isValidYmd((string) $endDate)) {
+            $errors['end_date'] = 'End date must be a valid YYYY-MM-DD.';
+        }
+    }
+
+    private function validateDateRange(array $data, array &$errors): void {
+        $startDate = $data['start_date'] ?? null;
+        $endDate   = $data['end_date'] ?? null;
+
+        if (empty($startDate) || empty($endDate)) {
+            return;
+        }
+
+        if (isset($errors['start_date']) || isset($errors['end_date'])) {
+            return;
+        }
+
+        if ($startDate > $endDate) {
+            $errors['end_date'] = 'End date must be on or after the start date.';
+        }
+    }
+
+    private function validateReason(array $data, array &$errors): void {
+        if (!array_key_exists('reason', $data) || $data['reason'] === null) {
+            return;
+        }
+
+        $reason = trim((string) $data['reason']);
+
+        if (mb_strlen($reason) > self::MAX_REASON_LENGTH) {
+            $errors['reason'] = sprintf('Reason must not exceed %d characters.', self::MAX_REASON_LENGTH);
+        } elseif ($reason === '') {
+            $errors['reason'] = 'Reason cannot be empty if provided.';
+        }
+    }
+
+    private function validateStatus(array $data, bool $isUpdate, array &$errors): void {
+        if ($isUpdate && !array_key_exists('status', $data)) {
+            return;
+        }
+
+        $status = trim((string) ($data['status'] ?? 'pending'));
+
+        if (!in_array($status, self::ALLOWED_STATUSES, true)) {
+            $errors['status'] = 'Status must be one of: ' . implode(', ', self::ALLOWED_STATUSES) . '.';
+        }
+    }
+
+    private function validateApprovedBy(array $data, array &$errors): void {
+        $approvedBy = $data['approved_by'] ?? null;
+        $status     = $data['status'] ?? null;
+
+        if ($approvedBy !== null && $approvedBy !== '') {
+            if (!$this->isPositiveInt($approvedBy)) {
+                $errors['approved_by'] = 'Approver ID must be a positive integer.';
             }
         }
-        if (empty($times)) return null;
-        sort($times);
-        return $times[0];
-    }
 
-    private function lastPunchOfType(array $punches, string $type): ?DateTimeImmutable{
-        $times = [];
-        foreach ($punches as $p) {
-            if ($p['punch_type'] === $type) {
-                $times[] = new DateTimeImmutable($p['punch_time']);
-            }
-        }
-        if (empty($times)) return null;
-        sort($times);
-        return $times[count($times) - 1];
-    }
-    /**
-     * Seconds of overlap between [$in, $out] and the night window
-     * (22:00 → 06:00 next day). Handles spans across multiple midnights.
-     */
-    private function overlapSecondsWithNightWindow(DateTimeImmutable $in, DateTimeImmutable $out): int
-    {
-        if ($out <= $in) {
-            return 0;
-        }
-
-        $total = 0;
-
-        // Walk day by day, checking 22:00→06:00 window for each day boundary
-        $cursor = $in->setTime(0, 0, 0);
-        $endDay = $out->setTime(0, 0, 0);
-
-        while ($cursor <= $endDay) {
-            // Night window that starts on $cursor at 22:00 and ends next day 06:00
-            $nightStart = $cursor->setTime(22, 0, 0);
-            $nightEnd   = $cursor->add(new DateInterval('P1D'))->setTime(6, 0, 0);
-
-            $overlapStart = max($in,  $nightStart);
-            $overlapEnd   = min($out, $nightEnd);
-
-            if ($overlapEnd > $overlapStart) {
-                $total += $overlapEnd->getTimestamp() - $overlapStart->getTimestamp();
-            }
-
-            // Also count the 00:00–06:00 window that "belongs" to this day
-            $earlyStart = $cursor->setTime(0, 0, 0);
-            $earlyEnd   = $cursor->setTime(6, 0, 0);
-
-            $oStart = max($in,  $earlyStart);
-            $oEnd   = min($out, $earlyEnd);
-
-            if ($oEnd > $oStart) {
-                $total += $oEnd->getTimestamp() - $oStart->getTimestamp();
-            }
-
-            $cursor = $cursor->add(new DateInterval('P1D'));
-        }
-
-        return $total;
-    }
-
-    private function assertDateRange(string $start, string $end): void
-    {
-        $s = DateTimeImmutable::createFromFormat('Y-m-d', $start);
-        $e = DateTimeImmutable::createFromFormat('Y-m-d', $end);
-
-        if (!$s || $s->format('Y-m-d') !== $start) {
-            throw new \InvalidArgumentException("Invalid start date: {$start}");
-        }
-        if (!$e || $e->format('Y-m-d') !== $end) {
-            throw new \InvalidArgumentException("Invalid end date: {$end}");
-        }
-        if ($s > $e) {
-            throw new \InvalidArgumentException("Start date {$start} is after end date {$end}");
+        if (in_array($status, ['approved', 'rejected'], true) && empty($approvedBy)) {
+            $errors['approved_by'] = 'Approver is required when status is approved or rejected.';
         }
     }
 
-    private function buildSummary(int $employeeId, string $date, array $punches): array {
-        return [
-            'employee_id'       => $employeeId,
-            'work_date'         => $date,
-            'regular_hours'     => $this->calculateRegularHours($punches),
-            'overtime_hours'    => $this->calculateOvertimeHours($punches),
-            'night_diff_hours'  => $this->calculateNightDiffHours($punches),
-            'late_minutes'      => $this->calculateLateMinutes($punches, $date),
-            'undertime_minutes' => $this->calculateUndertimeMinutes($punches, $date),
-            'is_rest_day'       => 0,   // caller/roster can override later
-        ];
+    private function validateApprovedAt(array $data, array &$errors): void {
+        if (!array_key_exists('approved_at', $data)) {
+            return;
+        }
+
+        $approvedAt = $data['approved_at'];
+
+        if ($approvedAt === null || $approvedAt === '') {
+            return;
+        }
+
+        if (!$this->isValidDateTime((string) $approvedAt)) {
+            $errors['approved_at'] = 'Approved at must be a valid YYYY-MM-DD HH:MM:SS.';
+        }
+    }
+
+    private function validateId(array $data, array &$errors): void {
+        if (!array_key_exists('id', $data)) {
+            return;
+        }
+
+        $id = $data['id'];
+
+        if ($id === null || $id === '') {
+            return;
+        }
+
+        if (!$this->isPositiveInt($id)) {
+            $errors['id'] = 'ID must be a positive integer.';
+        }
+    }
+
+    private function isPositiveInt(mixed $value): bool {
+        return filter_var(
+            $value,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        ) !== false;
+    }
+
+    private function isValidYmd(string $value): bool {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $value);
+        return $dt !== false && $dt->format('Y-m-d') === $value;
+    }
+
+    private function isValidDateTime(string $value): bool {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value);
+        return $dt !== false && $dt->format('Y-m-d H:i:s') === $value;
     }
 }

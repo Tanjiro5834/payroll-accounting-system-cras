@@ -2,288 +2,386 @@
 namespace App\Service;
 
 use App\Entity\LeaveRequest;
+use App\Repository\EmployeeRepository;
 use App\Repository\LeaveRequestRepository;
+use DateTimeImmutable;
+use DateTimeZone;
+use DomainException;
+use InvalidArgumentException;
 
-class LeaveRequestService{
+class LeaveRequestService {
+    private const TIMEZONE = 'Asia/Manila';
+
+    private const LEAVE_TYPES = [
+        'vacation',
+        'sick',
+        'maternity',
+        'paternity',
+        'bereavement',
+        'unpaid',
+    ];
+
+    private const STATUSES = ['pending', 'approved', 'rejected', 'cancelled'];
+
+    private const BLOCKING_STATUSES = ['pending', 'approved'];
+
+    private const MAX_REASON_LENGTH = 1000;
+
     private LeaveRequestRepository $repository;
+    private EmployeeRepository $employees;
 
-    public function __construct() {
-        $this->repository = new LeaveRequestRepository();
+    public function __construct(
+        ?LeaveRequestRepository $repository = null,
+        ?EmployeeRepository $employees = null
+    ) {
+        $this->repository = $repository ?? new LeaveRequestRepository();
+        $this->employees  = $employees  ?? new EmployeeRepository();
     }
 
-    public function getAll() {
+    public function getAll(): array {
         return $this->repository->findAll();
     }
 
-    public function getById(int $id) {
+    public function getById(int $id): ?array {
         return $this->repository->findById($id);
     }
 
-    public function getByEmployee(int $employeeId) {
+    public function getByEmployee(int $employeeId): array {
         return $this->repository->findByEmployee($employeeId);
     }
 
-    public function getByStatus(string $status) {   
+    public function getByStatus(string $status): array {
+        $this->assertValidStatus($status);
         return $this->repository->findByStatus($status);
     }
 
-    public function getByDateRange(string $start, string $end) {
-        $startDate = assertValidDate($start, 'start');
-        $endDate = assertValidDate($end, 'end');
+    public function getByDateRange(string $start, string $end): array {
+        $this->assertValidDate($start, 'start');
+        $this->assertValidDate($end, 'end');
+        $this->assertDateOrder($start, $end);
 
-        if($startDate > $endDate){
-            throw new Exception('Start date must be before or equal to end date.');
-        }
         return $this->repository->findByDateRange($start, $end);
     }
 
-    public function create(array $data) {
-        $errors = $this->validateData($data);
-        if (!empty($errors)) {
-            throw new Exception("Validation failed: " . implode(', ', $errors));
-        }
+    public function create(array $data, int $actorId): int {
+        $clean = $this->validate($data, false);
+        $this->requireEmployee($clean['employee_id']);
 
-        $leaveRequest = LeaveRequest::fromArray($data);
-        return $this->repository->create($leaveRequest);
+        $this->assertNoOverlap(
+            $clean['employee_id'],
+            $clean['start_date'],
+            $clean['end_date'],
+            null
+        );
+
+        $clean['status']      = 'pending';
+        $clean['approved_by'] = null;
+        $clean['approved_at'] = null;
+
+        return $this->repository->create(LeaveRequest::fromArray($clean));
     }
 
-    public function update(int $id, array $data) {
-        if(!$this->checkLeaveRequestPresence($id)){
-            throw new Exception("Holiday not found");
+    public function update(int $id, array $data): bool {
+        $existing = $this->requireRequest($id);
+
+        if ($existing['status'] !== 'pending') {
+            throw new DomainException("Only pending requests can be edited (current: {$existing['status']}).");
         }
 
-        $errors = $this->validateLeaveRequestData($data);
-        if (!empty($errors)) {
-            throw new Exception("Validation failed: " . implode(', ', $errors));
-        }
+        $clean = $this->validate($data, true);
 
-        return $this->repository->update($id, $data) > 0;
+        $start = $clean['start_date'] ?? $existing['start_date'];
+        $end   = $clean['end_date']   ?? $existing['end_date'];
+
+        $this->assertDateOrder($start, $end);
+        $this->assertNoOverlap((int) $existing['employee_id'], $start, $end, $id);
+
+        $clean['start_date'] = $start;
+        $clean['end_date']   = $end;
+
+        return $this->repository->update($id, LeaveRequest::fromArray($clean));
     }
 
-    public function delete(int $id) {
-        if(!$this->checkLeaveRequestPresence($id)){
-            throw new Exception("Leave request not found");
+    public function delete(int $id): bool {
+        $existing = $this->requireRequest($id);
+
+        if ($existing['status'] !== 'pending') {
+            throw new DomainException("Only pending requests can be deleted (current: {$existing['status']}).");
         }
 
         return $this->repository->delete($id);
     }
 
-    public function approve(int $id, string $approvedBy) {
-        if(!$this->checkLeaveRequestPresence($id)){
-            throw new Exception("Leave request not found");
+    public function approve(int $id, int $approvedBy): bool {
+        $existing = $this->requireRequest($id);
+
+        if ($existing['status'] !== 'pending') {
+            throw new DomainException("Only pending requests can be approved (current: {$existing['status']}).");
         }
 
-        return $this->repository->approveLeaveRequest($id, $approvedBy);
+        $this->assertNoOverlap(
+            (int) $existing['employee_id'],
+            $existing['start_date'],
+            $existing['end_date'],
+            $id,
+            ['approved']
+        );
+
+        return $this->repository->approve($id, $approvedBy);
     }
 
-    public function reject(int $id, string $approvedBy, string $reason = null): bool{
-        $request = $this->getById($id);
-        if(!$request) throw new Exception("Leave request not found");
+    public function reject(int $id, int $approvedBy, ?string $reason = null): bool {
+        $existing = $this->requireRequest($id);
 
-        if(request['statis'] !== 'pending'){
-            throw new Exception("Cannot reject — request is already {$request['status']}.");
+        if ($existing['status'] !== 'pending') {
+            throw new DomainException("Only pending requests can be rejected (current: {$existing['status']}).");
         }
 
-        if ($reason !== null && trim($reason) === '') $reason = null;
+        if ($reason !== null) {
+            $reason = trim($reason);
+            if ($reason === '') {
+                $reason = null;
+            } elseif (mb_strlen($reason) > self::MAX_REASON_LENGTH) {
+                throw new InvalidArgumentException(
+                    'Rejection reason must be ' . self::MAX_REASON_LENGTH . ' characters or fewer.'
+                );
+            }
+        }
 
-        $this->repository->reject($id, $approvedBy, $reason);
+        return $this->repository->reject($id, $approvedBy, $reason);
     }
 
-    public function cancel(int $id) {
-        if(!$this->checkLeaveRequestPresence($id)){
-            throw new Exception("Leave request not found");
+    public function cancel(int $id): bool {
+        $existing = $this->requireRequest($id);
+
+        if (!in_array($existing['status'], ['pending', 'approved'], true)) {
+            throw new DomainException("Only pending or approved requests can be cancelled (current: {$existing['status']}).");
         }
 
         return $this->repository->cancel($id);
     }
 
-    public function hasApprovedLeave(int $employeeId, string $date) {
+    public function hasApprovedLeave(int $employeeId, string $date): bool {
         $this->assertValidDate($date, 'date');
         return $this->repository->hasApprovedLeave($employeeId, $date);
     }
 
-    public function getLeaveDays(int $id) {
+    public function getLeaveDays(int $id): int {
         $request = $this->repository->findById($id);
-        if (!$request) return 0;
+        if (!$request) {
+            return 0;
+        }
 
-        $start = new DateTimeImmutable($request['start_date']);
-        $end = new DateTimeImmutable($request['end_date']);
+        $start = new DateTimeImmutable($request['start_date'], new DateTimeZone(self::TIMEZONE));
+        $end   = new DateTimeImmutable($request['end_date'],   new DateTimeZone(self::TIMEZONE));
 
         return (int) $start->diff($end)->days + 1;
     }
 
-    public function countByEmployeeAndYear(int $employeeId, string $year) {
-        if (!preg_match('/^\d{4}$/', $year)) {
-            throw new Exception("Year must be a 4-digit string, got: {$year}");
-        }
-
+    public function countByEmployeeAndYear(int $employeeId, int $year): int {
+        $this->assertValidYear($year);
         return $this->repository->countByEmployeeAndYear($employeeId, $year);
     }
 
-    public function checkOverlap(int $employeeId, string $start, string $end, int $exceptId = null) {
+    public function countByTypeForEmployee(int $employeeId, int $year): array {
+        $this->assertValidYear($year);
+        return $this->repository->countByEmployeeYearAndType($employeeId, $year);
+    }
+
+    public function checkOverlap(int $employeeId, string $start, string $end, ?int $exceptId = null): bool {
         $this->assertValidDate($start, 'start');
         $this->assertValidDate($end, 'end');
+        $this->assertDateOrder($start, $end);
 
-        if ($start > $end) {
-            throw new Exception('Start date must be on or before end date.');
-        }
-
-        // Pull the employee's active leave requests in a window that could
-        // possibly overlap the requested range, then compare in PHP.
-        // The query uses a superset range to keep the SQL simple.
-        $existing = $this->repository->findByEmployee($employeeId);
-
-        foreach ($existing as $row) {
-            // Skip the row being updated.
-            if ($exceptId !== null && (int) $row['id'] === $exceptId) continue;
-
-            // Only 'pending' and 'approved' leaves block new requests.
-            if (!in_array($row['status'], ['pending', 'approved'], true)) continue;
-
-            // Overlap test: two ranges overlap iff
-            //     start <= existing_end  AND  end >= existing_start
-            if ($start <= $row['end_date'] && $end >= $row['start_date']) {
-                throw new Exception(sprintf(
-                    'Date range %s to %s overlaps with existing %s leave (%s to %s).',
-                    $start,
-                    $end,
-                    $row['status'],
-                    $row['start_date'],
-                    $row['end_date']
-                ));
-            }
-        }
-
+        $this->assertNoOverlap($employeeId, $start, $end, $exceptId);
         return false;
     }
 
-    private function assertValidDate(string $date, string $field): void {
-        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $date);
-        if (!$dt || $dt->format('Y-m-d') !== $date) {
-            throw new Exception("Invalid date for {$field}: {$date}");
-        }
-    }
-
-    private function checkLeaveRequestPresence(int $id): bool{
-        return $this->getById($id) !== null;
-    }
-
-    private function validateLeaveRequestData(array $data, bool $isUpdate = false): array {
+    private function validate(array $data, bool $isUpdate): array {
         $errors = [];
 
-        // ---------- employee_id ----------
-        if (!$isUpdate || array_key_exists('employee_id', $data)) {
-            $employeeId = $data['employee_id'] ?? null;
-            if ($employeeId === null || $employeeId === '') {
-                $errors['employee_id'] = 'Employee is required.';
-            } elseif (!filter_var($employeeId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
-                $errors['employee_id'] = 'Employee ID must be a positive integer.';
-            }
+        $employeeId = $this->validateEmployeeId($data, $isUpdate, $errors);
+        $leaveType  = $this->validateLeaveType($data, $isUpdate, $errors);
+        $startDate  = $this->validateStartDate($data, $isUpdate, $errors);
+        $endDate    = $this->validateEndDate($data, $isUpdate, $errors);
+        $reason     = $this->validateReason($data, $errors);
+
+        if ($startDate !== null && $endDate !== null && $startDate > $endDate) {
+            $errors['end_date'] = 'End date must be on or after the start date.';
         }
 
-        // ---------- leave_type ----------
-        if (!$isUpdate || array_key_exists('leave_type', $data)) {
-            $type = trim((string) ($data['leave_type'] ?? ''));
-            $allowed = [
-                'vacation',
-                'sick',
-                'maternity',
-                'paternity',
-                'bereavement',
-                'unpaid',
-                'emergency',
-            ];
-            if ($type === '') {
-                $errors['leave_type'] = 'Leave type is required.';
-            } elseif (!in_array($type, $allowed, true)) {
-                $errors['leave_type'] = 'Leave type must be one of: ' . implode(', ', $allowed) . '.';
-            }
+        if ($errors) {
+            throw new InvalidArgumentException('Validation failed: ' . implode(', ', $errors));
         }
 
-        // ---------- start_date ----------
-        $startDate = $data['start_date'] ?? null;
-        if (!$isUpdate || array_key_exists('start_date', $data)) {
-            if (empty($startDate)) {
-                $errors['start_date'] = 'Start date is required.';
-            } else {
-                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', (string) $startDate);
-                if (!$dt || $dt->format('Y-m-d') !== (string) $startDate) {
-                    $errors['start_date'] = 'Start date must be a valid YYYY-MM-DD.';
-                }
-            }
+        $clean = array_filter([
+            'employee_id' => $employeeId,
+            'leave_type'  => $leaveType,
+            'start_date'  => $startDate,
+            'end_date'    => $endDate,
+            'reason'      => $reason,
+        ], fn($v) => $v !== null);
+
+        if ($isUpdate && !$clean) {
+            throw new InvalidArgumentException('No updatable fields provided.');
         }
 
-        // ---------- end_date ----------
-        $endDate = $data['end_date'] ?? null;
-        if (!$isUpdate || array_key_exists('end_date', $data)) {
-            if (empty($endDate)) {
-                $errors['end_date'] = 'End date is required.';
-            } else {
-                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', (string) $endDate);
-                if (!$dt || $dt->format('Y-m-d') !== (string) $endDate) {
-                    $errors['end_date'] = 'End date must be a valid YYYY-MM-DD.';
-                }
-            }
+        return $clean;
+    }
+
+    private function validateEmployeeId(array $data, bool $isUpdate, array &$errors): ?int {
+        if ($isUpdate && !array_key_exists('employee_id', $data)) {
+            return null;
         }
 
-        // ---------- date range cross-check ----------
-        if (!empty($startDate) && !empty($endDate)
-            && empty($errors['start_date']) && empty($errors['end_date'])) {
-            if ($startDate > $endDate) {
-                $errors['end_date'] = 'End date must be on or after the start date.';
-            }
+        $raw = $data['employee_id'] ?? null;
+        if ($raw === null || $raw === '') {
+            $errors['employee_id'] = 'Employee is required.';
+            return null;
         }
 
-        // ---------- reason ----------
-        if (array_key_exists('reason', $data) && $data['reason'] !== null) {
-            $reason = trim((string) $data['reason']);
-            if (mb_strlen($reason) > 1000) {
-                $errors['reason'] = 'Reason must not exceed 1000 characters.';
-            } elseif ($reason === '') {
-                $errors['reason'] = 'Reason cannot be empty if provided.';
-            }
+        $id = filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($id === false) {
+            $errors['employee_id'] = 'Employee ID must be a positive integer.';
+            return null;
         }
 
-        // ---------- status ----------
-        if (!$isUpdate || array_key_exists('status', $data)) {
-            $status = trim((string) ($data['status'] ?? 'pending'));
-            $allowed = ['pending', 'approved', 'rejected', 'cancelled'];
-            if (!in_array($status, $allowed, true)) {
-                $errors['status'] = 'Status must be one of: ' . implode(', ', $allowed) . '.';
-            }
+        return (int) $id;
+    }
+
+    private function validateLeaveType(array $data, bool $isUpdate, array &$errors): ?string {
+        if ($isUpdate && !array_key_exists('leave_type', $data)) {
+            return null;
         }
 
-        // ---------- approved_by ----------
-        // Only meaningful when status is 'approved' or 'rejected'.
-        if (array_key_exists('approved_by', $data) && $data['approved_by'] !== null && $data['approved_by'] !== '') {
-            if (!filter_var($data['approved_by'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
-                $errors['approved_by'] = 'Approver ID must be a positive integer.';
-            }
+        $type = trim((string) ($data['leave_type'] ?? ''));
+        if ($type === '') {
+            $errors['leave_type'] = 'Leave type is required.';
+            return null;
+        }
+        if (!in_array($type, self::LEAVE_TYPES, true)) {
+            $errors['leave_type'] = 'Leave type must be one of: ' . implode(', ', self::LEAVE_TYPES) . '.';
+            return null;
         }
 
-        // Cross-check: approval fields go hand in hand with status.
-        $status = $data['status'] ?? null;
-        if (in_array($status, ['approved', 'rejected'], true)) {
-            if (empty($data['approved_by'])) {
-                $errors['approved_by'] = 'Approver is required when status is approved or rejected.';
-            }
+        return $type;
+    }
+
+    private function validateStartDate(array $data, bool $isUpdate, array &$errors): ?string {
+        if ($isUpdate && !array_key_exists('start_date', $data)) {
+            return null;
         }
 
-        // ---------- approved_at ----------
-        if (array_key_exists('approved_at', $data) && $data['approved_at'] !== null && $data['approved_at'] !== '') {
-            $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $data['approved_at']);
-            if (!$dt || $dt->format('Y-m-d H:i:s') !== (string) $data['approved_at']) {
-                $errors['approved_at'] = 'Approved at must be a valid YYYY-MM-DD HH:MM:SS.';
-            }
+        $raw = trim((string) ($data['start_date'] ?? ''));
+        if ($raw === '') {
+            $errors['start_date'] = 'Start date is required.';
+            return null;
+        }
+        if (!$this->isValidDate($raw)) {
+            $errors['start_date'] = 'Start date must be a valid YYYY-MM-DD.';
+            return null;
         }
 
-        // ---------- id (only meaningful on update) ----------
-        if (array_key_exists('id', $data) && $data['id'] !== null && $data['id'] !== '') {
-            if (!filter_var($data['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
-                $errors['id'] = 'ID must be a positive integer.';
-            }
+        return $raw;
+    }
+
+    private function validateEndDate(array $data, bool $isUpdate, array &$errors): ?string {
+        if ($isUpdate && !array_key_exists('end_date', $data)) {
+            return null;
         }
 
-        return $errors;
+        $raw = trim((string) ($data['end_date'] ?? ''));
+        if ($raw === '') {
+            $errors['end_date'] = 'End date is required.';
+            return null;
+        }
+        if (!$this->isValidDate($raw)) {
+            $errors['end_date'] = 'End date must be a valid YYYY-MM-DD.';
+            return null;
+        }
+
+        return $raw;
+    }
+
+    private function validateReason(array $data, array &$errors): ?string {
+        if (!array_key_exists('reason', $data)) {
+            return null;
+        }
+
+        $reason = $data['reason'];
+        if ($reason === null) {
+            return null;
+        }
+
+        $reason = trim((string) $reason);
+        if ($reason === '') {
+            return null;
+        }
+        if (mb_strlen($reason) > self::MAX_REASON_LENGTH) {
+            $errors['reason'] = 'Reason must be ' . self::MAX_REASON_LENGTH . ' characters or fewer.';
+            return null;
+        }
+
+        return $reason;
+    }
+
+    private function assertNoOverlap(
+        int $employeeId,
+        string $start,
+        string $end,
+        ?int $exceptId,
+        array $statuses = self::BLOCKING_STATUSES
+    ): void {
+        if ($this->repository->hasOverlappingRequest($employeeId, $start, $end, $statuses, $exceptId)) {
+            throw new DomainException(sprintf(
+                'The date range %s to %s overlaps an existing %s leave.',
+                $start,
+                $end,
+                implode('/', $statuses)
+            ));
+        }
+    }
+
+    private function requireRequest(int $id): array {
+        $request = $this->repository->findById($id);
+        if (!$request) {
+            throw new DomainException("Leave request not found: {$id}");
+        }
+        return $request;
+    }
+
+    private function requireEmployee(int $employeeId): void {
+        if (!$this->employees->exists($employeeId)) {
+            throw new DomainException("Employee not found: {$employeeId}");
+        }
+    }
+
+    private function assertValidDate(string $date, string $field): void {
+        if (!$this->isValidDate($date)) {
+            throw new InvalidArgumentException("Invalid date for {$field}: {$date}");
+        }
+    }
+
+    private function isValidDate(string $date): bool {
+        $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone(self::TIMEZONE));
+        return $dt !== false && $dt->format('Y-m-d') === $date;
+    }
+
+    private function assertDateOrder(string $start, string $end): void {
+        if ($start > $end) {
+            throw new InvalidArgumentException('Start date must be on or before end date.');
+        }
+    }
+
+    private function assertValidStatus(string $status): void {
+        if (!in_array($status, self::STATUSES, true)) {
+            throw new InvalidArgumentException('Status must be one of: ' . implode(', ', self::STATUSES) . '.');
+        }
+    }
+
+    private function assertValidYear(int $year): void {
+        if ($year < 2000 || $year > (int) date('Y') + 1) {
+            throw new InvalidArgumentException("Invalid year: {$year}");
+        }
     }
 }
