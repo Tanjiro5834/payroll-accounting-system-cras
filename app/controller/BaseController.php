@@ -2,6 +2,7 @@
 namespace App\Controller;
 
 use App\Helper\Response;
+use App\Middleware\AuthMiddleware;
 use DomainException;
 use InvalidArgumentException;
 use Throwable;
@@ -39,11 +40,11 @@ abstract class BaseController {
     }
 
     protected function sessionUserId(): int {
-        return (int) ($_SESSION['user_id'] ?? 0);
+        return (int) (AuthMiddleware::user()['id'] ?? 0);
     }
 
     protected function sessionEmployeeId(): int {
-        return (int) ($_SESSION['employee_id'] ?? 0);
+        return (int) (AuthMiddleware::user()['employee_id'] ?? 0);
     }
 
     protected function requireSessionUser(): int {

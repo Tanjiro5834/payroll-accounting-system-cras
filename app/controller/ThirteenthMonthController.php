@@ -51,8 +51,8 @@ class ThirteenthMonthController extends BaseController {
         AuthMiddleware::requireLogin();
         $this->requireMethod('POST');
 
-        $employeeId = $this->jsonInt($_POST, 'employee_id');
-        $year       = $this->jsonInt($_POST, 'year', (int) date('Y'));
+        $employeeId = $this->jsonInt($this->input(), 'employee_id');
+        $year       = $this->jsonInt($this->input(), 'year', (int) date('Y'));
         $actorId    = $this->requireSessionUser();
 
         if ($employeeId < 1) {
@@ -69,7 +69,7 @@ class ThirteenthMonthController extends BaseController {
         AuthMiddleware::requireLogin();
         $this->requireMethod('POST');
 
-        $year    = $this->jsonInt($_POST, 'year', (int) date('Y'));
+        $year    = $this->jsonInt($this->input(), 'year', (int) date('Y'));
         $actorId = $this->requireSessionUser();
 
         $this->guard(function () use ($year, $actorId) {
@@ -127,7 +127,7 @@ class ThirteenthMonthController extends BaseController {
         $this->requireMethod('POST');
 
         $id     = (int) $id;
-        $paidAt = trim((string) ($_POST['paid_at'] ?? ''));
+        $paidAt = $this->jsonField($this->input(), 'paid_at');
 
         if ($id < 1) {
             Response::error('Invalid record ID.', 422);

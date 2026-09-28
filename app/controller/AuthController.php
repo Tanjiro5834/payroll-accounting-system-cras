@@ -49,7 +49,7 @@ class AuthController {
     public function changePassword(): void {
         AuthMiddleware::requireLogin();
 
-        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $userId = (int) (AuthMiddleware::user()['id'] ?? 0);
         if ($userId < 1) {
             Response::error('Not authenticated.', 401);
         }

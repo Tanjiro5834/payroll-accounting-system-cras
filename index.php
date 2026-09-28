@@ -5,6 +5,7 @@ ini_set('display_errors', '1');   // dev only — set to '0' in production
 error_reporting(E_ALL);
 session_start();
 
+use App\Config\App;
 use App\Controller\AuthController;
 use App\Controller\DashboardController;
 use App\Controller\EmployeeController;
@@ -25,14 +26,17 @@ spl_autoload_register(function (string $class): void {
     if (is_file($file)) require_once $file;
 });
 
+// date() must match the DB session zone (Database.php sets +08:00), whatever php.ini says.
+date_default_timezone_set(App::TIMEZONE);
+
 // ─── ROUTES: page => [view, controller, role, allowed actions] ───
 $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
-    'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'recentActivity']],
+    'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
     'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto']],
     'employee-form'    => ['employees/employee-form',           EmployeeController::class,        'admin',    ['show', 'store', 'update']],
     'payroll'          => ['payroll/payroll',                   PayrollController::class,         'admin',    ['index', 'compute', 'show', 'history', 'export', 'markAsPaid']],
-    'thirteenth-month' => ['thirteenth-month/thirteenth-month', ThirteenthMonthController::class, 'admin',    ['index', 'computeAll', 'show', 'approve', 'markAsPaid', 'export']],
+    'thirteenth-month' => ['thirteenth-month/thirteenth-month', ThirteenthMonthController::class, 'admin',    ['generateReport', 'computeAll', 'show', 'approve', 'markAsPaid', 'export']],
     'audit-log'        => ['reports/audit-log',                 ReportController::class,          'admin',    ['auditLog', 'auditLogExport']],
     'location-log'     => ['reports/location-log',              ReportController::class,          'admin',    ['locationLog', 'locationLogExport']],
     'punch-employee-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
@@ -56,12 +60,7 @@ if ($role !== null) {
     (new RoleMiddleware())->{'require' . ucfirst($role)}();   // requireAdmin() / requireEmployee()
 }
 
-// No action → serve the page
-if ($action === null) {
-    readfile(__DIR__ . "/views/$view.html");
-    exit;
-}
-
+// No action → serve the page with the CSRF token that api.js sends on POST
 if ($action === null) {
     $csrf = htmlspecialchars((new CsrfMiddleware())->getToken(), ENT_QUOTES);
     echo str_replace(

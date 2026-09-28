@@ -58,6 +58,13 @@ class AuthMiddleware
         exit;
     }
 
+    // Called at the top of controller actions. index.php already runs handle() for
+    // protected routes, so this is a second, explicit guard for direct calls.
+    public static function requireLogin(): void
+    {
+        (new self())->handle();
+    }
+
     public static function login(array $user): void
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -67,8 +74,9 @@ class AuthMiddleware
         session_regenerate_id(true);
 
         $_SESSION[self::SESSION_KEY] = [
-            'id'         => (int) $user['id'],
-            'role'       => (string) ($user['role'] ?? 'employee'),
+            'id'          => (int) $user['id'],
+            'employee_id' => isset($user['employee_id']) ? (int) $user['employee_id'] : null,
+            'role'        => (string) ($user['role'] ?? 'employee'),
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
             'ip'         => IpHelper::getClientIp(),
             'login_at'   => DateTimeHelper::now(),

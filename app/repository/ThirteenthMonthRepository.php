@@ -13,7 +13,7 @@ class ThirteenthMonthRepository extends BaseRepository {
         'thirteenth_month_pay', 'status', 'computed_by', 'computed_at', 'paid_at',
     ];
 
-    private const REPORT_COLUMNS = 't.id, t.employee_id, e.full_name, e.role, e.pay_frequency,
+    private const REPORT_COLUMNS = 't.id, t.employee_id, e.full_name, e.role, e.pay_frequency, e.date_hired,
                                     t.year, t.months_worked, t.total_regular_hours, t.total_basic_salary,
                                     t.thirteenth_month_pay, t.status, t.computed_by, t.computed_at,
                                     t.approved_by, t.approved_at, t.paid_at';
@@ -34,7 +34,7 @@ class ThirteenthMonthRepository extends BaseRepository {
             $record->getMonthsWorked(),
             $record->getTotalRegularHours(),
             $record->getTotalBasicSalary(),
-            $record->getThirteenthMonthSalary(),
+            $record->getThirteenthMonthPay(),
             $record->getStatus(),
             $record->getComputedBy(),
             $record->getComputedAt(),
@@ -58,7 +58,7 @@ class ThirteenthMonthRepository extends BaseRepository {
             ':months_worked'        => $record->getMonthsWorked(),
             ':total_regular_hours'  => $record->getTotalRegularHours(),
             ':total_basic_salary'   => $record->getTotalBasicSalary(),
-            ':thirteenth_month_pay' => $record->getThirteenthMonthSalary(),
+            ':thirteenth_month_pay' => $record->getThirteenthMonthPay(),
             ':id'                   => $id,
         ]);
 

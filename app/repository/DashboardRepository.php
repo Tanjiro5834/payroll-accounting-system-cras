@@ -89,7 +89,8 @@ class DashboardRepository extends BaseRepository {
 
         $latest = $this->db->prepare(
             "SELECT tp.id, tp.employee_id, e.full_name, tp.work_date, tp.punch_type,
-                    tp.punch_time, tp.is_flagged, tp.flag_reason
+                    tp.punch_time, tp.ip_address, tp.gps_lat, tp.gps_lng,
+                    tp.is_flagged, tp.flag_reason
              FROM time_punches tp
              LEFT JOIN employees e ON e.id = tp.employee_id
              WHERE tp.work_date = :d

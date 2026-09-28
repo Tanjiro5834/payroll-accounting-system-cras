@@ -61,7 +61,7 @@ class AuthService {
     }
 
     public function check(): bool {
-        return ($_SESSION['logged_in'] ?? false) === true;
+        return AuthMiddleware::user() !== null;
     }
 
     public function user(): ?array {
@@ -69,10 +69,11 @@ class AuthService {
             return null;
         }
 
+        $session = AuthMiddleware::user();
         return [
-            'id'   => $_SESSION['user_id']   ?? null,
-            'role' => $_SESSION['user_role'] ?? null,
-            'name' => $_SESSION['user_name'] ?? null,
+            'id'          => $session['id'],
+            'employee_id' => $session['employee_id'] ?? null,
+            'role'        => $session['role'],
         ];
     }
 

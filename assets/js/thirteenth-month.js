@@ -85,171 +85,182 @@
     yearSelect.appendChild(opt);
   }
 
-  /* Mock data — replaced by PHP */
-  const MOCK = {
-    2026: [
-      {
-        name: "Ana Villanueva",
-        role: "Secretary",
-        hired: "2022-06-01",
-        months: 12,
-        regHours: 2288,
-        salary: 331760,
-      },
-      {
-        name: "Carlos Mendoza",
-        role: "Driver",
-        hired: "2023-01-10",
-        months: 12,
-        regHours: 2270,
-        salary: 227000,
-      },
-      {
-        name: "Juan Dela Cruz",
-        role: "Technician",
-        hired: "2023-01-15",
-        months: 12,
-        regHours: 2280,
-        salary: 273600,
-      },
-      {
-        name: "Maria Santos",
-        role: "Admin",
-        hired: "2022-06-01",
-        months: 12,
-        regHours: 2288,
-        salary: 331760,
-      },
-      {
-        name: "Pedro Reyes",
-        role: "Technician",
-        hired: "2023-03-20",
-        months: 12,
-        regHours: 2280,
-        salary: 296400,
-      },
-    ],
+  /* Report table */
+  const tbody = document.getElementById("tmb-tbody");
+  const COLUMNS = 9;
+
+  const STATUS_BADGE = {
+    draft: "bg-slate-200 text-slate-700",
+    approved: "bg-amber-100 text-amber-800",
+    paid: "bg-emerald-100 text-emerald-800",
   };
 
-  function render(year) {
-    const rows = MOCK[year] || [];
-    const tbody = document.getElementById("tmb-tbody");
-    tbody.innerHTML = "";
+  // Each status has one next step; paid is final.
+  const NEXT_ACTION = {
+    draft: { action: "approve", label: "Approve", confirm: null },
+    approved: {
+      action: "markAsPaid",
+      label: "Mark paid",
+      confirm: "Mark this 13th month pay as paid? This can't be undone.",
+    },
+  };
 
-    if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="7" class="px-4 py-16 text-center text-sm text-slate-500">No data for ' +
-        year +
-        ".</td></tr>";
-      return;
+  function hours(n) {
+    return Number(n).toLocaleString("en-PH", { maximumFractionDigits: 2 });
+  }
+
+  function messageRow(text) {
+    return (
+      '<tr><td colspan="' + COLUMNS + '" class="px-4 py-16 text-center text-sm text-slate-500">' +
+      escapeHtml(text) +
+      "</td></tr>"
+    );
+  }
+
+  function actionCell(r) {
+    const next = NEXT_ACTION[r.status];
+    if (!next) {
+      return '<span class="font-mono text-[11px] text-slate-400">' + escapeHtml((r.paid_at || "").split(" ")[0]) + "</span>";
     }
+    return (
+      '<button type="button" data-action="' + next.action + '" data-id="' + Number(r.id) + '"' +
+      ' class="px-3 py-1.5 rounded-md border border-line text-xs font-semibold text-coolant hover:bg-coolant-tint focus:outline-none focus:ring-2 focus:ring-frost disabled:opacity-50 transition-colors">' +
+      next.label +
+      "</button>"
+    );
+  }
 
-    let totalSalary = 0,
-      total13th = 0,
-      totalHours = 0;
+  function recordRow(r) {
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50 transition-colors";
+    tr.innerHTML =
+      '<td class="px-4 py-3 text-sm font-semibold text-slate-900 whitespace-nowrap">' + escapeHtml(r.full_name) + "</td>" +
+      '<td class="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">' + escapeHtml(r.role) + "</td>" +
+      '<td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">' + escapeHtml(r.date_hired || "—") + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + Number(r.months_worked) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + hours(r.total_regular_hours) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + peso(r.total_basic_salary) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(r.thirteenth_month_pay) + "</td>" +
+      '<td class="px-4 py-3"><span class="inline-block px-2 py-0.5 rounded font-mono text-[11px] font-semibold uppercase ' +
+        (STATUS_BADGE[r.status] || STATUS_BADGE.draft) + '">' + escapeHtml(r.status) + "</span></td>" +
+      '<td class="px-4 py-3 text-right whitespace-nowrap">' + actionCell(r) + "</td>";
+    return tr;
+  }
 
-    rows.forEach(function (r) {
-      const tmb = r.salary / 12;
-      totalSalary += r.salary;
-      total13th += tmb;
-      totalHours += r.regHours;
-      const tr = document.createElement("tr");
-      tr.className = "hover:bg-slate-50 transition-colors";
-      tr.innerHTML =
-        '<td class="px-4 py-3 text-sm font-semibold text-slate-900 whitespace-nowrap">' +
-        escapeHtml(r.name) +
-        "</td>" +
-        '<td class="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">' +
-        escapeHtml(r.role) +
-        "</td>" +
-        '<td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">' +
-        escapeHtml(r.hired) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        r.months +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        r.regHours.toLocaleString("en-PH") +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' +
-        peso(r.salary) +
-        "</td>" +
-        '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' +
-        peso(tmb) +
-        "</td>";
-      tbody.appendChild(tr);
-    });
-
+  function totalsRow(rows, totals) {
+    const totalHours = rows.reduce(function (sum, r) { return sum + Number(r.total_regular_hours); }, 0);
     const tr = document.createElement("tr");
     tr.className = "bg-slate-50 border-t-2 border-slate-200";
     tr.innerHTML =
-      '<td class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap" colspan="4">Total (' +
-      rows.length +
-      ")</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' +
-      totalHours.toLocaleString("en-PH") +
-      "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' +
-      peso(totalSalary) +
-      "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' +
-      peso(total13th) +
-      "</td>";
-    tbody.appendChild(tr);
-
-    document.getElementById("table-title").textContent =
-      "13th Month Pay — " + year;
+      '<td class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap" colspan="4">Total (' + totals.employees + ")</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' + hours(totalHours) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' + peso(totals.total_basic) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(totals.total_payout) + "</td>" +
+      '<td colspan="2"></td>';
+    return tr;
   }
 
-  yearSelect.addEventListener("change", function () {
-    render(this.value);
-  });
-  render(currentYear);
+  function render(report) {
+    document.getElementById("table-title").textContent = "13th Month Pay — " + report.year;
+    document.getElementById("compute-label").textContent = "Compute " + report.year;
 
-  /* CSV export */
-  document.getElementById("export-csv").addEventListener("click", function () {
-    const year = yearSelect.value;
-    const rows = MOCK[year] || [];
-    if (!rows.length) {
-      showToast("No data to export.", "error");
+    const t = report.totals;
+    document.getElementById("table-sub").textContent = report.rows.length
+      ? "Paid " + peso(t.paid) + " · Unpaid " + peso(t.unpaid) + " · ordered by employee name"
+      : "Ordered by employee name";
+
+    if (!report.rows.length) {
+      tbody.innerHTML = messageRow("Nothing computed for " + report.year + " yet. Click Compute to generate it from approved payroll.");
       return;
     }
-    const lines = [
-      [
-        "Employee",
-        "Role",
-        "Date Hired",
-        "Months Worked",
-        "Total Reg. Hrs",
-        "Basic Salary",
-        "13th Month Pay",
-      ].join(","),
-    ];
-    rows.forEach(function (r) {
-      lines.push(
-        [
-          '"' + r.name + '"',
-          '"' + r.role + '"',
-          r.hired,
-          r.months,
-          r.regHours,
-          r.salary.toFixed(2),
-          (r.salary / 12).toFixed(2),
-        ].join(","),
+
+    tbody.replaceChildren();
+    report.rows.forEach(function (r) {
+      tbody.appendChild(recordRow(r));
+    });
+    tbody.appendChild(totalsRow(report.rows, t));
+  }
+
+  async function load() {
+    tbody.innerHTML = messageRow("Loading…");
+    try {
+      render(await api.get("thirteenth-month", "generateReport", { params: { year: yearSelect.value } }));
+    } catch (error) {
+      tbody.innerHTML = messageRow("Couldn't load the report: " + error.message);
+    }
+  }
+
+  yearSelect.addEventListener("change", load);
+  load();
+
+  /* Compute */
+  const computeBtn = document.getElementById("compute-btn");
+
+  computeBtn.addEventListener("click", async function () {
+    const year = yearSelect.value;
+    const ok = confirm(
+      "Compute 13th month pay for " + year + " from approved payroll?\n\n" +
+      "Draft records are recalculated. Approved and paid records are left untouched."
+    );
+    if (!ok) return;
+
+    computeBtn.disabled = true;
+    try {
+      const result = await api.post("thirteenth-month", "computeAll", { body: { year: Number(year) } });
+      showToast("Computed " + result.computed + " employee" + (result.computed === 1 ? "" : "s") + ".", "success");
+      await load();
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      computeBtn.disabled = false;
+    }
+  });
+
+  /* Row actions: approve / mark paid (event delegation — rows are re-rendered on every load) */
+  tbody.addEventListener("click", async function (e) {
+    const button = e.target.closest("button[data-action]");
+    if (!button) return;
+
+    const action = button.dataset.action;
+    const step = Object.values(NEXT_ACTION).find(function (s) { return s.action === action; });
+    if (step.confirm && !confirm(step.confirm)) return;
+
+    button.disabled = true;
+    try {
+      await api.post("thirteenth-month", action, { id: button.dataset.id });
+      showToast(action === "approve" ? "Approved." : "Marked as paid.", "success");
+      await load();
+    } catch (error) {
+      showToast(error.message, "error");
+      button.disabled = false;
+    }
+  });
+
+  /* CSV export — server builds the file; fetched as a blob so errors can show as a toast */
+  document.getElementById("export-csv").addEventListener("click", async function () {
+    const year = yearSelect.value;
+    try {
+      const res = await fetch(
+        "index.php?" + new URLSearchParams({ page: "thirteenth-month", action: "export", year: year }),
+        { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } }
       );
-    });
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "thirteenth_month_" + year + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("CSV downloaded.", "success");
+      if (!res.ok) {
+        const data = await res.json().catch(function () { return {}; });
+        throw new Error(data.error || "Export failed (" + res.status + ")");
+      }
+
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "thirteenth_month_" + year + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("CSV downloaded.", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
   });
 
   document.getElementById("export-pdf").addEventListener("click", function () {

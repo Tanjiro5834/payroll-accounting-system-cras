@@ -31,6 +31,9 @@ class Database {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
+            // TIMESTAMP columns (punch_time, etc.) are converted to this zone on read,
+            // so TIME()/HOUR() and late checks are in Manila time on any server.
+            $this->connection->exec("SET time_zone = '+08:00'");
         } catch (\PDOException $e) {
             if ($isLocal) {
                 throw new \RuntimeException("DB connection failed: " . $e->getMessage(), 0, $e);
