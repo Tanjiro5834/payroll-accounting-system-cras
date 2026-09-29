@@ -1,7 +1,3 @@
-// assets/js/theme.js
-// Centralized Tailwind theme for Coronacion Timekeeping.
-// Loaded immediately after the Tailwind CDN script in every view.
-
 tailwind.config = {
     theme: {
         extend: {

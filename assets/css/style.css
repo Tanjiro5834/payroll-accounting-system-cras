@@ -1,30 +1,6 @@
-/* assets/css/style.css */
-/* Custom CSS for Coronacion Timekeeping.
-   Only animations, reduced-motion fallbacks, scrollbars, and focus rings.
-   All layout and color comes from Tailwind utilities + theme.js tokens. */
-
 :root {
     --logo-size: 2.5rem;
     --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ---------- Brand logo placeholder ---------- */
-.brand-logo {
-    width: var(--logo-size);
-    height: var(--logo-size);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.75rem;
-    border: 2px dashed #94A3B8;
-    color: #64748B;
-    font-family: 'Archivo', system-ui, sans-serif;
-    font-weight: 700;
-    font-size: 0.625rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    background: #F8FAFC;
-    flex-shrink: 0;
 }
 
 /* ---------- Page enter / stagger helpers ---------- */

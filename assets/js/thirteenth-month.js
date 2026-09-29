@@ -1,7 +1,6 @@
 (function () {
   "use strict";
-
-  /* Drawer */
+  
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");

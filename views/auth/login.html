@@ -9,8 +9,34 @@
     <script src="assets/js/theme.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/ui.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: {
+                            50: '#F6F8FB', 100: '#EEF2F7', 200: '#E1E7F0', 300: '#C3CBDA',
+                            400: '#8B98AE', 500: '#5A6A85', 600: '#3A4A66', 700: '#26344F',
+                            800: '#1B2740', 900: '#111A2E', DEFAULT: '#0B1220'
+                        },
+                        coolant: { DEFAULT: '#0E7490', hover: '#155E75', tint: '#E0F2FE' },
+                        frost: '#22D3EE',
+                        line: '#E1E7F0',
+                        positive: '#059669',
+                        negative: '#DC2626',
+                        warning: '#D97706'
+                    },
+                    fontFamily: {
+                        sans: ['"Segoe UI"', 'system-ui', '-apple-system', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['"Roboto Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
 </head>
 <body class="font-sans bg-ink-50 text-ink min-h-screen flex flex-col antialiased">
 
@@ -19,15 +45,16 @@
 
             <!-- Logo / Wordmark -->
             <div class="text-center mb-8">
-                <!-- LOGO PLACEHOLDER: replace with <img src="assets/img/logo.svg"> -->
-                <div class="brand-logo mx-auto mb-4" style="--logo-size: 4rem;">LOGO</div>
-                <h1 class="font-display text-2xl font-bold tracking-tight text-ink">Coronacion</h1>
+                <img src="assets/images/coronacion-logo.png" 
+                alt="Coronacion Logo" 
+                class="mx-auto mb-4 w-16 h-16 object-contain">
+                <h1 class="text-2xl font-bold tracking-tight text-ink">Coronacion</h1>
                 <p class="text-sm text-slate-500 mt-1">Refrigeration &amp; Airconditioning Services</p>
             </div>
 
             <!-- Login Card -->
-            <div class="bg-white rounded-xl border border-line shadow-sm p-6 sm:p-8">
-                <h2 class="font-display text-xl font-bold tracking-tight mb-1">Sign in</h2>
+            <div class="bg-white rounded-2xl border border-line shadow-sm p-6 sm:p-8">
+                <h2 class="text-xl font-bold tracking-tight mb-1">Sign in</h2>
                 <p class="text-sm text-slate-500 mb-6">Enter your credentials to access the timekeeping system.</p>
 
                 <form id="login-form" method="POST" action="index.php?page=login&action=login" class="space-y-5">
@@ -39,7 +66,7 @@
                             name="username"
                             autocomplete="username"
                             required
-                            class="w-full px-3.5 py-3 rounded-lg border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
+                            class="w-full px-3.5 py-3 rounded-xl border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
                             placeholder="e.g. jdelacruz"
                         >
                     </div>
@@ -53,14 +80,14 @@
                                 name="password"
                                 autocomplete="current-password"
                                 required
-                                class="w-full px-3.5 py-3 pr-12 rounded-lg border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
+                                class="w-full px-3.5 py-3 pr-12 rounded-xl border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
                                 placeholder="••••••••"
                             >
                             <button
                                 type="button"
                                 id="toggle-password"
                                 aria-label="Show password"
-                                class="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-slate-400 hover:text-coolant focus:outline-none focus:ring-2 focus:ring-frost rounded-r-lg transition-colors"
+                                class="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-slate-400 hover:text-coolant focus:outline-none focus:ring-2 focus:ring-frost rounded-r-xl transition-colors"
                             >
                                 <svg id="icon-eye" class="icon-crossfade w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
@@ -88,7 +115,7 @@
 
                     <button
                         type="submit"
-                        class="w-full min-h-[44px] py-3 px-4 bg-coolant hover:bg-coolant-hover text-white text-sm font-semibold rounded-lg shadow-sm hover:shadow-md hover:-translate-y-px active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-frost focus:ring-offset-2 transition-all duration-150"
+                        class="ui-btn w-full min-h-[44px] py-3 px-4 bg-coolant hover:bg-coolant-hover text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-frost focus:ring-offset-2 transition-all duration-150"
                     >
                         Sign in
                     </button>
@@ -100,5 +127,6 @@
     </main>
 
     <script src="assets/js/login.js"></script>
+    <script src="assets/js/ui.js"></script>
 </body>
 </html>

@@ -1,9 +1,6 @@
 (function () {
   "use strict";
 
-  /* ============================================================
-               Utilities
-               ============================================================ */
   function getParam(name) {
     return new URLSearchParams(window.location.search).get(name);
   }
@@ -39,11 +36,6 @@
       .toUpperCase();
   }
 
-  /* ============================================================
-               Employee (from the server)
-               ============================================================ */
-  // Staff arrive with ?employee_id=… from the kiosk list; an employee's own
-  // account can omit it and the server uses the logged-in employee.
   const employeeId = getParam("employee_id");
 
   function renderEmployee(employee) {
@@ -54,9 +46,6 @@
     document.title = employee.name + " — Clock In / Out";
   }
 
-  /* ============================================================
-               Live Clock
-               ============================================================ */
   const clockEl = document.getElementById("live-clock");
   const dateEl = document.getElementById("live-date");
 
@@ -73,9 +62,6 @@
   updateClock();
   setInterval(updateClock, 1000);
 
-  /* ============================================================
-               Punch Types & State
-               ============================================================ */
   const PUNCH_TYPES = [
     { key: "am_in", label: "AM IN", dir: "in" },
     { key: "am_out", label: "AM OUT", dir: "out" },
@@ -85,7 +71,6 @@
     { key: "ot_out", label: "OT OUT", dir: "out" },
   ];
 
-  // Filled from the server by applyStatus(); value = display time or null.
   let nextPunch = null;
   const punchState = {
     am_in: null,
@@ -96,9 +81,6 @@
     ot_out: null,
   };
 
-  /* ============================================================
-               Render Status Row
-               ============================================================ */
   const statusRow = document.getElementById("status-row");
 
   function renderStatusRow() {
@@ -130,13 +112,9 @@
     });
   }
 
-  /* ============================================================
-               Render Punch Buttons
-               ============================================================ */
   const punchForm = document.getElementById("punch-form");
 
   function renderPunchButtons() {
-    // Remove old buttons (keep hidden inputs)
     punchForm.querySelectorAll("button[data-punch]").forEach(function (b) {
       b.remove();
     });
@@ -195,9 +173,6 @@
     });
   }
 
-  /* ============================================================
-               Toast Notifications
-               ============================================================ */
   const toastContainer = document.getElementById("toast-container");
 
   function showToast(message, type) {
@@ -231,11 +206,6 @@
     }, 3000);
   }
 
-  /* ============================================================
-               Server status
-               ============================================================ */
-  // "2026-09-28 07:32:10" → "7:32 AM", parsed by hand so the browser's
-  // timezone can't shift the server's Manila time.
   function serverTime(timestamp) {
     const [h, m] = String(timestamp).split(" ")[1].split(":").map(Number);
     return ((h % 12) || 12) + ":" + pad(m) + " " + (h < 12 ? "AM" : "PM");
@@ -254,9 +224,6 @@
     return serverType.replace("_", " ");
   }
 
-  /* ============================================================
-               Punch Handler
-               ============================================================ */
   function locationFields() {
     return {
       gps_lat: document.getElementById("gps_lat").value,
@@ -269,7 +236,6 @@
   async function handlePunch(pt) {
     if (punchState[pt.key]) return;
 
-    // Friendly early message; the server enforces the same order regardless.
     if (pt.key.toUpperCase() !== nextPunch) {
       showToast(
         nextPunch ? "Next punch is " + labelOf(nextPunch) + "." : "All punches for today are done.",
@@ -292,15 +258,11 @@
       applyStatus(status);
       showToast(pt.label + " recorded — " + punchState[pt.key] + " \u2705", "success");
     } catch (error) {
-      // Nothing was saved: re-enable the button and say why.
       renderPunchButtons();
       showToast(error.message, "error");
     }
   }
 
-  /* ============================================================
-               GPS Capture (silent)
-               ============================================================ */
   const gpsDot = document.getElementById("gps-dot");
   const gpsLabel = document.getElementById("gps-label");
 
@@ -330,9 +292,6 @@
     );
   }
 
-  /* ============================================================
-               Device Fingerprint
-               ============================================================ */
   function computeFingerprint() {
     const raw = [
       navigator.userAgent,
@@ -343,11 +302,10 @@
       navigator.language,
     ].join("|");
 
-    // Simple 32-bit hash (djb2)
     let hash = 5381;
     for (let i = 0; i < raw.length; i++) {
       hash = (hash << 5) + hash + raw.charCodeAt(i);
-      hash = hash & hash; // force 32-bit
+      hash = hash & hash;
     }
     const hex = (hash >>> 0).toString(16).padStart(8, "0");
     return "dev_" + hex;
@@ -355,9 +313,6 @@
 
   document.getElementById("device_fingerprint").value = computeFingerprint();
 
-  /* ============================================================
-               Init
-               ============================================================ */
   async function load() {
     try {
       const status = await api.get("punch", "todayStatus", employeeId ? { id: employeeId } : {});
