@@ -1,0 +1,324 @@
+<!-- views/punch/flagged-punches.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Flagged Punches — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/theme.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/ui.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: {
+                            50: '#F6F8FB', 100: '#EEF2F7', 200: '#E1E7F0', 300: '#C3CBDA',
+                            400: '#8B98AE', 500: '#5A6A85', 600: '#3A4A66', 700: '#26344F',
+                            800: '#1B2740', 900: '#111A2E', DEFAULT: '#0B1220'
+                        },
+                        coolant: { DEFAULT: '#0E7490', hover: '#155E75', tint: '#E0F2FE' },
+                        frost: '#22D3EE',
+                        line: '#E1E7F0',
+                        positive: '#059669',
+                        negative: '#DC2626',
+                        warning: '#D97706'
+                    },
+                    fontFamily: {
+                        sans: ['"Segoe UI"', 'system-ui', '-apple-system', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['"Roboto Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="font-sans bg-ink-50 text-ink min-h-screen antialiased">
+
+    <!-- MOBILE TOP BAR -->
+    <header class="lg:hidden sticky top-0 z-30 bg-ink text-white shadow-sm pt-safe">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <!-- LOGO PLACEHOLDER: replace with <img src="assets/img/logo.svg"> -->
+                <div class="brand-logo" style="--logo-size: 2.25rem; background: #0E7490; border-color: #22D3EE; color: #ECFEFF;">LOGO</div>
+                <div>
+                    <p class="text-sm font-bold tracking-tight leading-tight">Coronacion</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Admin</p>
+                </div>
+            </div>
+            <button id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar" class="flex items-center justify-center w-11 h-11 -mr-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-frost transition-colors">
+                <svg id="icon-menu" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                <svg id="icon-close" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="drawer-overlay" class="lg:hidden fixed inset-0 bg-ink/70 z-40 opacity-0 pointer-events-none transition-opacity duration-[220ms]"></div>
+
+    <!-- SIDEBAR (copied from payroll.html; only active nav item changed) -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-ink text-slate-100 transform -translate-x-full lg:translate-x-0 flex flex-col" aria-label="Main navigation">
+        <div class="flex items-center gap-3 px-5 py-5 border-b border-white/5">
+            <img src="assets/images/coronacion-logo.png"
+            alt="Coronacion Logo"
+            class="w-12 h-12 object-contain">
+            <div class="min-w-0">
+                <p class="text-sm font-bold tracking-tight text-white leading-tight">Coronacion</p>
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Timekeeping System</p>
+            </div>
+        </div>
+        <div class="px-5 py-4 border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-coolant flex items-center justify-center flex-shrink-0"><span class="text-white font-bold text-sm">CRAS</span></div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-white truncate">Coronacion Services</p>
+                    <p class="text-xs text-slate-400 truncate">Owner / Admin</p>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-3 py-4">
+            <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Main</p>
+            <ul class="space-y-1 mb-5">
+                <li><a href="index.php?page=dashboard" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+                    Dashboard
+                </a></li>
+                <li><a href="index.php?page=punch-employee-list" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    Clock In / Out
+                </a></li>
+                <li><a href="#" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+                    My Time Logs
+                </a></li>
+            </ul>
+            <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Administration</p>
+            <ul class="space-y-1">
+                <li><a href="index.php?page=employees" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
+                    Employees
+                </a></li>
+                <li><a href="index.php?page=payroll" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" /></svg>
+                    Payroll
+                </a></li>
+                <li><a href="index.php?page=thirteenth-month" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    13th Month Report
+                </a></li>
+                <li><a href="index.php?page=audit-log" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+                    Audit Trail
+                </a></li>
+                <li><a href="index.php?page=location-log" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
+                    Location Logs
+                </a></li>
+                <li><a href="index.php?page=flagged-punches" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl bg-coolant text-white font-medium text-sm min-h-[44px] shadow-sm" aria-current="page">
+                    <svg class="w-5 h-5 flex-shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" /></svg>
+                    Flagged Punches
+                </a></li>
+            </ul>
+        </nav>
+        <div class="border-t border-white/5 p-3">
+            <a href="index.php?page=login&action=logout" class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white font-medium text-sm min-h-[44px] transition-colors">
+                <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-frost transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
+                Sign out
+            </a>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="lg:pl-72">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-32">
+
+            <!-- Page Header -->
+            <div class="mb-6 lg:mb-8 page-enter flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-ink">Flagged Punches</h1>
+                        <span id="open-count-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
+                            <span id="open-count-value" class="num">0</span>
+                            <span>open</span>
+                        </span>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-1">Punches the system flagged for review: early outs, missing pairs, lunch length, IP changes.</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-6 mb-5 page-enter">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+
+                    <!-- Status segmented control -->
+                    <div class="md:col-span-4">
+                        <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Status</span>
+                        <div id="status-segment" role="radiogroup" aria-label="Filter by status" class="inline-flex w-full rounded-xl border border-line bg-ink-50 p-1">
+                            <button type="button" role="radio" aria-checked="true" data-status="open" class="seg-btn flex-1 min-h-[40px] px-3 rounded-lg text-sm font-semibold text-ink bg-white shadow-sm transition-colors">Open</button>
+                            <button type="button" role="radio" aria-checked="false" data-status="reviewed" class="seg-btn flex-1 min-h-[40px] px-3 rounded-lg text-sm font-semibold text-slate-500 hover:text-ink transition-colors">Reviewed</button>
+                            <button type="button" role="radio" aria-checked="false" data-status="all" class="seg-btn flex-1 min-h-[40px] px-3 rounded-lg text-sm font-semibold text-slate-500 hover:text-ink transition-colors">All</button>
+                        </div>
+                    </div>
+
+                    <!-- Date from -->
+                    <div class="md:col-span-3">
+                        <label for="filter-date-from" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date from</label>
+                        <input type="date" id="filter-date-from" class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                    </div>
+
+                    <!-- Date to -->
+                    <div class="md:col-span-3">
+                        <label for="filter-date-to" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date to</label>
+                        <input type="date" id="filter-date-to" class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                    </div>
+
+                    <!-- Reset -->
+                    <div class="md:col-span-2">
+                        <button id="reset-filters" type="button" class="ui-btn w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-line bg-white text-slate-700 text-sm font-semibold hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[44px]">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Employee -->
+                    <div class="md:col-span-4">
+                        <label for="filter-employee" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Employee</label>
+                        <select id="filter-employee" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                            <option value="">All employees</option>
+                        </select>
+                    </div>
+
+                    <!-- Spacer for grid alignment -->
+                    <div class="md:col-span-8 hidden md:block"></div>
+                </div>
+
+                <!-- Summary chips -->
+                <div id="summary-chips" class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-line" role="group" aria-label="Filter by reason category">
+                    <button type="button" data-chip="early_out" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span>Early out</span>
+                        <span class="num text-slate-400" data-chip-count="early_out">0</span>
+                    </button>
+                    <button type="button" data-chip="missing_pair" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        <span>Missing pair</span>
+                        <span class="num text-slate-400" data-chip-count="missing_pair">0</span>
+                    </button>
+                    <button type="button" data-chip="short_lunch" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                        <span>Short lunch</span>
+                        <span class="num text-slate-400" data-chip-count="short_lunch">0</span>
+                    </button>
+                    <button type="button" data-chip="long_lunch" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-violet-500"></span>
+                        <span>Long lunch</span>
+                        <span class="num text-slate-400" data-chip-count="long_lunch">0</span>
+                    </button>
+                    <button type="button" data-chip="ip_mismatch" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-fuchsia-500"></span>
+                        <span>IP mismatch</span>
+                        <span class="num text-slate-400" data-chip-count="ip_mismatch">0</span>
+                    </button>
+                    <button type="button" data-chip="other" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                        <span>Other</span>
+                        <span class="num text-slate-400" data-chip-count="other">0</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error state -->
+            <section id="error-state" class="hidden bg-white rounded-2xl border border-line shadow-sm py-12 px-6 text-center">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-50 mb-3">
+                    <svg class="w-7 h-7 text-negative" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                </div>
+                <p class="text-sm font-semibold text-slate-700">Couldn't load flagged punches.</p>
+                <p id="error-message" class="text-xs text-slate-500 mt-1"></p>
+                <button id="retry-btn" type="button" class="ui-btn mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-coolant text-white text-sm font-semibold hover:bg-coolant-hover focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[44px]">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                    Retry
+                </button>
+            </section>
+
+            <!-- Desktop table -->
+            <section id="table-wrap" class="hidden bg-white rounded-2xl border border-line shadow-sm overflow-hidden page-enter">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 z-10">
+                            <tr class="border-b border-line bg-ink-50">
+                                <th class="text-left px-4 py-3 w-10">
+                                    <input type="checkbox" id="select-all-visible" aria-label="Select all visible open punches" class="w-4 h-4 rounded border-line text-coolant focus:ring-frost">
+                                </th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Employee</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Punch</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Time</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Reason</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">IP</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Location</th>
+                                <th class="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                                <th class="text-right px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="flagged-tbody" class="divide-y divide-line"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Mobile cards -->
+            <div id="cards-wrap" class="hidden md:hidden space-y-3"></div>
+
+            <!-- Skeleton -->
+            <section id="skeleton-wrap" class="hidden bg-white rounded-2xl border border-line shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b border-line bg-ink-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Loading flagged punches…</div>
+                <ul class="divide-y divide-line">
+                    <li class="p-4"><div class="skeleton h-4 w-1/3 mb-3"></div><div class="skeleton h-3 w-2/3 mb-2"></div><div class="skeleton h-3 w-1/2"></div></li>
+                    <li class="p-4"><div class="skeleton h-4 w-1/4 mb-3"></div><div class="skeleton h-3 w-1/2 mb-2"></div><div class="skeleton h-3 w-2/3"></div></li>
+                    <li class="p-4"><div class="skeleton h-4 w-1/3 mb-3"></div><div class="skeleton h-3 w-3/5 mb-2"></div><div class="skeleton h-3 w-1/2"></div></li>
+                </ul>
+            </section>
+
+            <!-- Empty state -->
+            <section id="empty-flag-state" class="hidden bg-white rounded-2xl border border-line shadow-sm py-16 px-6 text-center page-enter">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-4">
+                    <svg class="w-8 h-8 text-positive" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                </div>
+                <p class="text-sm font-semibold text-slate-700">No flagged punches for this range. Nice.</p>
+                <p class="text-xs text-slate-500 mt-1">Try widening the date range or switching to All.</p>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Sticky bulk bar -->
+    <div id="bulk-bar" class="fixed bottom-0 inset-x-0 z-40 translate-y-full opacity-0 transition-transform duration-300 ease-out lg:pl-72" aria-hidden="true">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-4">
+            <div class="flex items-center justify-between gap-3 bg-ink text-white rounded-2xl shadow-lg px-4 py-3 border border-white/10">
+                <p class="text-sm font-semibold">
+                    <span id="bulk-count" class="num">0</span>
+                    <span>selected</span>
+                </p>
+                <div class="flex items-center gap-2">
+                    <button id="bulk-review" type="button" class="ui-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-coolant text-white text-sm font-semibold hover:bg-coolant-hover focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[44px]">
+                        <svg id="bulk-review-spinner" class="w-4 h-4 hidden animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        <span id="bulk-review-label">Mark reviewed</span>
+                    </button>
+                    <button id="bulk-clear" type="button" class="ui-btn px-4 py-2 rounded-xl border border-white/20 text-white text-sm font-semibold hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[44px]">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live region for counts / toasts -->
+    <div id="toast-container" class="fixed bottom-24 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite" aria-atomic="false"></div>
+    <p id="sr-count" class="sr-only" aria-live="polite"></p>
+
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/ui.js"></script>
+    <script src="assets/js/flagged-punches.js"></script>
+</body>
+</html>
