@@ -135,7 +135,7 @@ class DeductionRepository extends BaseRepository {
     }
 
     public function codeExists(string $code, ?int $exceptId = null): bool {
-        $sql    = "SELECT 1 FROM deductions WHERE code = ?";
+        $sql = "SELECT 1 FROM deductions WHERE code = ?";
         $params = [$code];
 
         if ($exceptId !== null) {
