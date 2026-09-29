@@ -26,7 +26,7 @@ class DashboardRepository extends BaseRepository {
                  WHERE f.first_in > :late_after) AS late,
 
                 (SELECT COUNT(*) FROM time_punches
-                 WHERE work_date = :d_flagged AND is_flagged = 1) AS flagged,
+                 WHERE work_date = :d_flagged AND is_flagged = 1 AND reviewed_at IS NULL) AS flagged,
 
                 (SELECT COUNT(DISTINCT lr.employee_id)
                  FROM leave_requests lr
@@ -115,7 +115,7 @@ class DashboardRepository extends BaseRepository {
                     tp.flag_reason, tp.reviewed_by, tp.reviewed_at
              FROM time_punches tp
              LEFT JOIN employees e ON e.id = tp.employee_id
-             WHERE tp.work_date = :d AND tp.is_flagged = 1
+             WHERE tp.work_date = :d AND tp.is_flagged = 1 AND tp.reviewed_at IS NULL
              ORDER BY tp.punch_time ASC"
         );
         $stmt->execute([':d' => $date]);

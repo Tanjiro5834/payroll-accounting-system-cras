@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');   // dev only — set to '0' in production
+ini_set('display_errors', '1');
 error_reporting(E_ALL);
 session_start();
 
@@ -13,23 +13,21 @@ use App\Controller\PayrollController;
 use App\Controller\PunchController;
 use App\Controller\ReportController;
 use App\Controller\ThirteenthMonthController;
+use App\Controller\FlaggedPunchController;   
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\RoleMiddleware;
 
-// ─── AUTOLOAD: App\Controller\Foo → app/controller/Foo.php ───
 spl_autoload_register(function (string $class): void {
     $parts = explode('\\', $class);
     $name  = array_pop($parts);
-    $dir   = strtolower($parts[1] ?? 'config');   // no namespace (Database) → app/config
+    $dir   = strtolower($parts[1] ?? 'config');   
     $file  = __DIR__ . "/app/$dir/$name.php";
     if (is_file($file)) require_once $file;
 });
 
-// date() must match the DB session zone (Database.php sets +08:00), whatever php.ini says.
 date_default_timezone_set(App::TIMEZONE);
 
-// ─── ROUTES: page => [view, controller, role, allowed actions] ───
 $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
     'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
@@ -42,12 +40,13 @@ $routes = [
     'punch-employee-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
     'punch'            => ['punch/punch',                       PunchController::class,           'employee', ['store', 'todayStatus', 'history']],
     'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto', 'removePhoto']],
+    'flagged-punches'  => ['punch/flagged-punches',             FlaggedPunchController::class,    'admin',    ['index', 'review', 'reviewBulk']],
 ];
 
 // ─── ROUTING ───
-$page   = $_GET['page']   ?? 'login';
+$page = $_GET['page']   ?? 'login';
 $action = $_GET['action'] ?? null;
-$id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
+$id = isset($_GET['id']) ? (int) $_GET['id'] : null;
 
 if (!isset($routes[$page])) {
     http_response_code(404);
@@ -58,27 +57,38 @@ if (!isset($routes[$page])) {
 
 if ($role !== null) {
     (new AuthMiddleware())->handle();
-    (new RoleMiddleware())->{'require' . ucfirst($role)}();   // requireAdmin() / requireEmployee()
+    (new RoleMiddleware())->{'require' . ucfirst($role)}(); 
 }
 
-// No action → serve the page with the CSRF token that api.js sends on POST
 if ($action === null) {
     $csrf = htmlspecialchars((new CsrfMiddleware())->getToken(), ENT_QUOTES);
+    $html = file_get_contents(__DIR__ . "/views/$view.html");
+
+    // Cache-bust local assets: assets/js/x.js → assets/js/x.js?v=<mtime>
+    $html = preg_replace_callback(
+        '#(src|href)="(assets/[^"?]+\.(?:js|css))"#',
+        function (array $m): string {
+            $file = __DIR__ . '/' . $m[2];
+            $ver  = is_file($file) ? filemtime($file) : 0;
+            return $m[1] . '="' . $m[2] . '?v=' . $ver . '"';
+        },
+        $html
+    );
+
     echo str_replace(
         '</head>',
         "<meta name=\"csrf-token\" content=\"$csrf\">\n</head>",
-        file_get_contents(__DIR__ . "/views/$view.html")
+        $html
     );
     exit;
 }
 
-// Action → call controller: ?page=employees&action=show&id=5 → EmployeeController::show(5)
 if (!in_array($action, $actions, true)) {
     http_response_code(404);
     header('Content-Type: application/json');
     exit(json_encode(['error' => 'Unknown action']));
 }
 
-if($page !== 'login') (new CsrfMiddleware())->handle();   // no-op on GET
+if($page !== 'login') (new CsrfMiddleware())->handle();
 
 $id === null ? (new $controller())->$action() : (new $controller())->$action($id);

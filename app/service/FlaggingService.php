@@ -12,8 +12,10 @@ class FlaggingService {
     private const TIMEZONE = 'Asia/Manila';
 
     private const SHORT_LUNCH_MINUTES = 50;
-    private const LONG_LUNCH_MAX      = 70;
+    private const LONG_LUNCH_MAX = 70;
     private const HABITUAL_LATE_LIMIT = 3;
+    private const MAX_BULK_REVIEW = 500;
+    private const REVIEW_STATUSES = ['open', 'reviewed', 'all'];
 
     private TimePunchRepository $repository;
 
@@ -106,11 +108,71 @@ class FlaggingService {
         $this->assertPositiveId($punchId, 'punchId');
         $this->assertPositiveId($reviewerId, 'reviewerId');
 
-        if (!$this->repository->unflagById($punchId, $reviewerId)) {
+        if (!$this->repository->markReviewed($punchId, $reviewerId)) {
             throw new DomainException("Punch #{$punchId} is not flagged or was already reviewed.");
         }
 
         return true;
+    }
+
+    public function markFlagsReviewedBulk(array $ids, int $reviewerId): int {
+        $this->assertPositiveId($reviewerId, 'reviewerId');
+
+        $clean = [];
+        foreach ($ids as $id) {
+            $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id === false) {
+                throw new InvalidArgumentException('ids must be positive integers.');
+            }
+            $clean[$id] = $id;
+        }
+        if (!$clean) {
+            throw new InvalidArgumentException('Select at least one punch.');
+        }
+        if (count($clean) > self::MAX_BULK_REVIEW) {
+            throw new InvalidArgumentException('Review at most ' . self::MAX_BULK_REVIEW . ' punches at once.');
+        }
+
+        return $this->repository->markReviewedBulk(array_values($clean), $reviewerId);
+    }
+
+    public function search(string $status, string $from, string $to, int $employeeId): array {
+        $status = $status !== '' ? $status : 'open';
+        if (!in_array($status, self::REVIEW_STATUSES, true)) {
+            throw new InvalidArgumentException('status must be one of: ' . implode(', ', self::REVIEW_STATUSES) . '.');
+        }
+
+        $today = new DateTimeImmutable('today', new DateTimeZone(self::TIMEZONE));
+        $to    = $to   !== '' ? $to   : $today->format('Y-m-d');
+        $from  = $from !== '' ? $from : $today->modify('-13 days')->format('Y-m-d');
+
+        $this->assertDate($from, 'date_from');
+        $this->assertDate($to, 'date_to');
+
+        if ($from > $to) {
+            throw new InvalidArgumentException('date_from must be on or before date_to.');
+        }
+
+        if ($employeeId < 0) {
+            throw new InvalidArgumentException('employee_id must not be negative.');
+        }
+
+        return array_map(fn(array $r) => [
+            'id'               => (int) $r['id'],
+            'employee_id'      => (int) $r['employee_id'],
+            'full_name'        => $r['full_name'],
+            'work_date'        => $r['work_date'],
+            'punch_type'       => $r['punch_type'],
+            'punch_time'       => $r['punch_time'],
+            'ip_address'       => $r['ip_address'],
+            'gps_lat'          => $r['gps_lat'],
+            'gps_lng'          => $r['gps_lng'],
+            'gps_accuracy'     => $r['gps_accuracy'],
+            'flag_reason'      => $r['flag_reason'],
+            'reviewed_by'      => $r['reviewed_by'] !== null ? (int) $r['reviewed_by'] : null,
+            'reviewed_by_name' => $r['reviewed_by_name'],
+            'reviewed_at'      => $r['reviewed_at'],
+        ], $this->repository->searchFlagged($status, $from, $to, $employeeId));
     }
 
     public function dismissFlag(int $punchId, int $reviewerId, string $reason): bool {

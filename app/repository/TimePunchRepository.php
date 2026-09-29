@@ -417,6 +417,66 @@ class TimePunchRepository extends BaseRepository {
         return $stmt->rowCount();
     }
 
+    public function searchFlagged(string $status, string $from, string $to, int $employeeId = 0, int $limit = 500): array {
+        $sql = "SELECT tp.id, tp.employee_id, e.full_name, tp.work_date, tp.punch_type, tp.punch_time,
+                       tp.ip_address, tp.gps_lat, tp.gps_lng, tp.gps_accuracy,
+                       tp.flag_reason, tp.reviewed_by, tp.reviewed_at,
+                       COALESCE(re.full_name, u.username) AS reviewed_by_name
+                FROM time_punches tp
+                LEFT JOIN employees e  ON e.id  = tp.employee_id
+                LEFT JOIN users u      ON u.id  = tp.reviewed_by
+                LEFT JOIN employees re ON re.id = u.employee_id
+                WHERE tp.is_flagged = 1
+                  AND tp.work_date >= :date_from
+                  AND tp.work_date <  :date_to";
+        $params = [':date_from' => $from, ':date_to' => $this->nextDay($to)];
+
+        if ($status === 'open') {
+            $sql .= " AND tp.reviewed_at IS NULL";
+        } elseif ($status === 'reviewed') {
+            $sql .= " AND tp.reviewed_at IS NOT NULL";
+        }
+        if ($employeeId > 0) {
+            $sql .= " AND tp.employee_id = :employee_id";
+            $params[':employee_id'] = $employeeId;
+        }
+        $sql .= " ORDER BY tp.work_date DESC, tp.punch_time DESC, tp.id DESC LIMIT :lim";
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', $this->clampLimit($limit), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Stamps review; keeps is_flagged + flag_reason so history stays. False if not open. */
+    public function markReviewed(int $id, int $reviewedBy): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE time_punches
+             SET reviewed_by = :reviewed_by, reviewed_at = NOW()
+             WHERE id = :id AND is_flagged = 1 AND reviewed_at IS NULL"
+        );
+        $stmt->execute([':reviewed_by' => $reviewedBy, ':id' => $id]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function markReviewedBulk(array $ids, int $reviewedBy): int {
+        if (!$ids) {
+            return 0;
+        }
+        $in   = implode(', ', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare(
+            "UPDATE time_punches
+             SET reviewed_by = ?, reviewed_at = NOW()
+             WHERE id IN ({$in}) AND is_flagged = 1 AND reviewed_at IS NULL"
+        );
+        $stmt->execute([$reviewedBy, ...$ids]);
+        return $stmt->rowCount();
+    }
+
     public function reviewById(int $id, int $reviewedBy): bool {
         $stmt = $this->db->prepare(
             "UPDATE time_punches
