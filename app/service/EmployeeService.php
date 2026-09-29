@@ -41,7 +41,9 @@ class EmployeeService {
 
     public function create(array $data): int {
         $clean = $this->validateAndNormalize($data, false);
-        return $this->repository->create(Employee::fromArray($clean));
+        $id = $this->repository->create(Employee::fromArray($clean));
+        (new StatutoryContributionService())->enroll($id, $clean['date_hired'] ?? date('Y-m-d'));
+        return $id;
     }
 
     public function update(int $id, array $data): bool {

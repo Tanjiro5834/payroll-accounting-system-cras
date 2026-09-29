@@ -88,8 +88,10 @@ class PayrollService {
         if ($existing && !in_array($existing['status'], ['draft', 'computed'], true)) {
             return; // approved/paid payroll is locked
         }
+        
         if ($existing) {
             $this->repository->deleteById((int) $existing['id']); // its deduction snapshot cascades
+            $this->deductions->forgetCarryovers((int) $existing['id']);
         }
 
         $id = $this->repository->createPeriod($row);
@@ -131,7 +133,7 @@ class PayrollService {
         ];
 
         $gross = $this->computeGrossPay($totals, $employee, $hourly);
-        $computed = $this->deductions->computeFromCatalog($employeeId, $gross, $start, $end);
+        $computed = $this->deductions->computeFromCatalog($employeeId, $gross, $start, $end, $employee);
 
         $deductTotal = '0.00';
         foreach ($computed as $d) {
@@ -207,7 +209,7 @@ class PayrollService {
     }
 
     public function computeDeductions(int $employeeId, string $grossPay, string $start, string $end): array {
-        return $this->deductions->computeFromCatalog($employeeId, $grossPay, $start, $end);
+        return $this->deductions->computeFromCatalog($employeeId, $grossPay, $start, $end, $this->requireEmployee($employeeId));
     }
 
     public function computeNetPay(string $grossPay, array $deductions): string {

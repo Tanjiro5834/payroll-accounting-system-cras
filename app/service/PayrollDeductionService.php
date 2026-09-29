@@ -5,6 +5,8 @@ use App\Repository\DeductionRepository;
 use App\Repository\EmployeeDeductionRepository;
 use App\Repository\PayrollDeductionRepository;
 use App\Repository\PayrollRepository;
+use App\Service\StatutoryContributionService;
+use App\Repository\DeductionCarryoverRepository;  
 use DateTimeImmutable;
 use DateTimeZone;
 use DomainException;
@@ -18,17 +20,24 @@ class PayrollDeductionService {
     private PayrollRepository $payrollRepository;
     private EmployeeDeductionRepository $employeeDeductionRepository;
     private DeductionRepository $deductionRepository;
+    private DeductionCarryoverRepository $carryovers;
+
+    private StatutoryContributionService $statutory;
 
     public function __construct(
         ?PayrollDeductionRepository $repository = null,
         ?PayrollRepository $payrollRepository = null,
         ?EmployeeDeductionRepository $employeeDeductionRepository = null,
-        ?DeductionRepository $deductionRepository = null
+        ?DeductionRepository $deductionRepository = null,
+        ?StatutoryContributionService $statutory = null,
+        ?DeductionCarryoverRepository $carryovers = null
     ) {
-        $this->repository                = $repository                ?? new PayrollDeductionRepository();
-        $this->payrollRepository         = $payrollRepository         ?? new PayrollRepository();
+        $this->repository = $repository ?? new PayrollDeductionRepository();
+        $this->payrollRepository = $payrollRepository ?? new PayrollRepository();
         $this->employeeDeductionRepository = $employeeDeductionRepository ?? new EmployeeDeductionRepository();
-        $this->deductionRepository       = $deductionRepository       ?? new DeductionRepository();
+        $this->deductionRepository = $deductionRepository ?? new DeductionRepository();
+        $this->statutory = $statutory ?? new StatutoryContributionService();
+        $this->carryovers = $carryovers ?? new DeductionCarryoverRepository();
     }
 
     public function getByPayrollPeriod(int $payrollPeriodId): array {
@@ -102,7 +111,8 @@ class PayrollDeductionService {
         int $employeeId,
         string $grossPay,
         string $periodStart,
-        string $periodEnd
+        string $periodEnd,
+        ?array $employee = null
     ): array {
         $grossPay = $this->money($grossPay, 'grossPay');
         $this->assertDate($periodStart, 'periodStart');
@@ -112,48 +122,92 @@ class PayrollDeductionService {
             throw new InvalidArgumentException('periodStart must be on or before periodEnd.');
         }
 
-        $rows = $this->employeeDeductionRepository->findByEmployeeAndPeriod(
-            $employeeId,
-            $periodStart,
-            $periodEnd
-        );
+        $rows    = $this->employeeDeductionRepository->findByEmployeeAndPeriod($employeeId, $periodStart, $periodEnd);
+        $carryIn = $this->carryovers->latestShortfalls($employeeId, $periodStart);
 
-        $computed = [];
+        $statutory = [];
+        $others    = [];
         foreach ($rows as $row) {
-            $deductionId = (int) $row['deduction_id'];
-            $type        = (string) $row['deduction_type'];
-            $baseValue   = (string) $row['deduction_value'];
-            $override    = $row['amount'] !== null ? (string) $row['amount'] : null;
-
-            $amount = $this->computeDeductionAmount($type, $baseValue, $override, $grossPay);
-
-            $computed[] = [
-                'deduction_id' => $deductionId,
-                'code'         => (string) $row['deduction_code'],
+            $code     = (string) $row['deduction_code'];
+            $override = $row['amount'] !== null && $row['amount'] !== '' ? (string) $row['amount'] : null;
+            $item = [
+                'deduction_id' => (int) $row['deduction_id'],
+                'code'         => $code,
                 'name'         => (string) $row['deduction_name'],
-                'type'         => $type,
-                'amount'       => $amount,
+                'type'         => (string) $row['deduction_type'],
             ];
+
+            if ($this->statutory->isStatutory($code)) {
+                if ($employee === null) {
+                    throw new InvalidArgumentException("{$code} needs the employee row to compute.");
+                }
+                $share   = $override !== null
+                    ? $this->money($override, 'amount')
+                    : $this->statutory->shareForPeriod($code, $employee, $periodEnd);
+                $carried = $carryIn[$item['deduction_id']] ?? '0.00';
+                $item['carried_in'] = $carried;
+                $item['amount_due'] = bcadd($share, $carried, 2);
+                $statutory[array_search($code, StatutoryContributionService::CODES, true)] = $item;
+            } else {
+                $item['amount_due'] = $this->computeDeductionAmount(
+                    $item['type'], (string) $row['deduction_value'], $override, $grossPay
+                );
+                $others[] = $item;
+            }
+        }
+        ksort($statutory);   // SSS, PhilHealth, Pag-IBIG
+
+        $available = $grossPay;
+        $computed  = [];
+        foreach ([...array_values($statutory), ...$others] as $item) {
+            $take = bccomp($item['amount_due'], $available, 2) <= 0 ? $item['amount_due'] : $available;
+            $available = bcsub($available, $take, 2);
+
+            $item['amount'] = $take;
+            if (isset($item['carried_in'])) {
+                $item['shortfall'] = bcsub($item['amount_due'], $take, 2);
+            }
+            $computed[] = $item;
         }
 
         return $computed;
+    }
+
+    public function forgetCarryovers(int $payrollPeriodId): void {
+        $this->carryovers->deleteByPayrollPeriod($payrollPeriodId);
     }
 
     public function snapshotForPayroll(int $payrollPeriodId, array $computedDeductions): int {
         $payroll = $this->requirePayrollPeriod($payrollPeriodId);
         $this->assertEditable($payroll);
 
-        $rows = [];
+        $rows  = [];
+        $carry = [];
         foreach ($computedDeductions as $d) {
             if (!isset($d['deduction_id'], $d['amount'])) {
                 throw new InvalidArgumentException('Each computed deduction needs deduction_id and amount.');
             }
-            $rows[] = [
-                'deduction_id' => (int) $d['deduction_id'],
-                'amount'       => $this->money($d['amount'], 'amount'),
-            ];
+            $amount = $this->money($d['amount'], 'amount');
+
+            if (bccomp($amount, '0', 2) > 0) {
+                $rows[] = ['deduction_id' => (int) $d['deduction_id'], 'amount' => $amount];
+            }
+            if (isset($d['shortfall'])) {
+                $carry[] = [
+                    'deduction_id'    => (int) $d['deduction_id'],
+                    'amount_due'      => $this->money($d['amount_due'], 'amount_due'),
+                    'amount_deducted' => $amount,
+                    'shortfall'       => $this->money($d['shortfall'], 'shortfall'),
+                ];
+            }
         }
 
+        $this->carryovers->replaceForPayrollPeriod(
+            $payrollPeriodId,
+            (int) $payroll['employee_id'],
+            (string) $payroll['period_end'],
+            $carry
+        );
         return $this->repository->replaceForPayrollPeriod($payrollPeriodId, $rows);
     }
 
