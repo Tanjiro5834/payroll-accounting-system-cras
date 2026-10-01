@@ -45,7 +45,11 @@ class UserRepository extends BaseRepository {
 
     public function findByUsername(string $username): ?array {
         $stmt = $this->db->prepare(
-            "SELECT " . self::FULL_COLUMNS . " FROM users WHERE username = ? LIMIT 1"
+            "SELECT u.id, u.username, u.password_hash, u.role, u.employee_id, u.last_login,
+                    u.is_active, u.created_at, u.updated_at, e.full_name
+             FROM users u
+             LEFT JOIN employees e ON e.id = u.employee_id
+             WHERE u.username = ? LIMIT 1"
         );
         $stmt->execute([$username]);
 

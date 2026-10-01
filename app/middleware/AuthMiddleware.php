@@ -79,7 +79,8 @@ class AuthMiddleware
             'role'        => (string) ($user['role'] ?? 'employee'),
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
             'ip'         => IpHelper::getClientIp(),
-            'login_at'   => DateTimeHelper::now(),
+            'login_at'   => DateTimeHelper::now(),            'username'     => (string) ($user['username'] ?? ''),
+            'display_name' => (string) ($user['full_name'] ?? $user['username'] ?? ''),
         ];
         $_SESSION[self::ACTIVITY_KEY] = time();
     }

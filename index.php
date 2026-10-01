@@ -28,6 +28,13 @@ spl_autoload_register(function (string $class): void {
 
 date_default_timezone_set(App::TIMEZONE);
 
+function renderPartial(string $name, array $vars): string {
+    extract($vars, EXTR_SKIP);
+    ob_start();
+    require __DIR__ . "/views/partials/$name.php";
+    return (string) ob_get_clean();
+}
+
 $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
     'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
@@ -64,7 +71,6 @@ if ($action === null) {
     $csrf = htmlspecialchars((new CsrfMiddleware())->getToken(), ENT_QUOTES);
     $html = file_get_contents(__DIR__ . "/views/$view.html");
 
-    // Cache-bust local assets: assets/js/x.js → assets/js/x.js?v=<mtime>
     $html = preg_replace_callback(
         '#(src|href)="(assets/[^"?]+\.(?:js|css))"#',
         function (array $m): string {
@@ -74,6 +80,13 @@ if ($action === null) {
         },
         $html
     );
+
+    if (str_contains($html, '<!-- @sidebar -->')) {
+        $html = str_replace('<!-- @sidebar -->', renderPartial('sidebar', [
+            'page' => $page,
+            'user' => AuthMiddleware::user(),
+        ]), $html);
+    }
 
     echo str_replace(
         '</head>',

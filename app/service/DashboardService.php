@@ -34,10 +34,12 @@ class DashboardService {
             $kpi['absent'] = 0;
         }
 
-        $expected = $kpi['total_active'] - $kpi['on_leave'];
+        $totalActive = $kpi['total_active'];
+        $onLeave = $kpi['on_leave'];
+        $expected = $totalActive - $onLeave;
 
-        $kpi['is_work_day']     = $isWorkDay;
-        $kpi['late_cutoff']     = $cutoff;
+        $kpi['is_work_day'] = $isWorkDay;
+        $kpi['late_cutoff'] = $cutoff;
         $kpi['attendance_rate'] = ($isWorkDay && $expected > 0)
             ? min(100.0, round($kpi['present'] / $expected * 100, 1))
             : null;
@@ -48,7 +50,10 @@ class DashboardService {
     public function getTodayActivity(?string $date = null, int $limit = 20): array {
         $d = $this->resolveDate($date)->format('Y-m-d');
         $activity = $this->repository->getTodayActivity($d, $this->clampLimit($limit));
-
+        
+        //loops from 0 to 23 padded with 0 using sprintf() 
+        //then stores the activity where how many employees punched 
+        // in a specific time then fallbacks to 0 if nothing found, to the buckets array
         $buckets = [];
         for ($h = 0; $h < 24; $h++) {
             $key = sprintf('%02d', $h);
@@ -56,7 +61,7 @@ class DashboardService {
         }
 
         $activity['buckets'] = $buckets;
-        $activity['total']   = array_sum($buckets);
+        $activity['total'] = array_sum($buckets);
         return $activity;
     }
 
