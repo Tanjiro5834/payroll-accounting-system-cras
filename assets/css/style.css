@@ -3,7 +3,6 @@
     --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ---------- Page enter / stagger helpers ---------- */
 .page-enter {
     animation: fade-up 400ms var(--ease-smooth) both;
 }
@@ -18,7 +17,6 @@
 .stagger > *:nth-child(5) { animation-delay: 160ms; }
 .stagger > *:nth-child(6) { animation-delay: 200ms; }
 
-/* ---------- Skeleton shimmer ---------- */
 .skeleton {
     position: relative;
     overflow: hidden;
@@ -33,7 +31,6 @@
     animation: shimmer 1.6s linear infinite;
 }
 
-/* ---------- Toast ---------- */
 .toast {
     animation: toast-in 260ms var(--ease-smooth) both;
 }
@@ -43,19 +40,16 @@
     transition: opacity 200ms var(--ease-smooth), transform 200ms var(--ease-smooth);
 }
 
-/* ---------- Icon cross-fade (password toggle, in/out state) ---------- */
 .icon-crossfade {
     transition: opacity 180ms var(--ease-smooth);
 }
 
-/* ---------- Focus ring (frost cyan) ---------- */
 :focus-visible {
     outline: 2px solid #22D3EE;
     outline-offset: 2px;
     border-radius: 0.375rem;
 }
 
-/* ---------- Scrollbar ---------- */
 * {
     scrollbar-width: thin;
     scrollbar-color: #CBD5E1 transparent;
@@ -75,7 +69,6 @@
     background-color: #64748B;
 }
 
-/* ---------- Safe-area helpers ---------- */
 .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
 }
@@ -83,7 +76,6 @@
     padding-top: env(safe-area-inset-top);
 }
 
-/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

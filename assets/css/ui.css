@@ -1,12 +1,5 @@
-/* assets/css/ui.css
-   Shared UI layer for Coronacion Timekeeping.
-   Tokens, fonts, numeric utility, motion, drawer, focus, reduced-motion. */
-
-/* ---------------- Tokens ---------------- */
 :root {
-    /* Brand palette (navy + coolant teal) */
-    --ink:        #0B1220;   /* navy-950 */
-    --ink-900:    #111A2E;
+    --ink:        #0B1220;    --ink-900:    #111A2E;
     --ink-800:    #1B2740;
     --ink-700:    #26344F;
     --ink-600:    #3A4A66;
@@ -28,22 +21,18 @@
 
     --line: #E1E7F0;
 
-    /* Motion */
     --ease-smooth: cubic-bezier(.2, .8, .2, 1);
     --dur-enter: 260ms;
     --dur-exit:  160ms;
     --dur-drawer: 280ms;
 
-    /* Radii */
     --r-sm: 8px;
     --r-md: 12px;
     --r-lg: 16px;
 
-    /* Logo (kept for existing placeholder usage) */
     --logo-size: 2.5rem;
 }
 
-/* ---------------- Base ---------------- */
 html, body {
     font-family: "Segoe UI", system-ui, -apple-system, Roboto,
                  "Helvetica Neue", Arial, sans-serif;
@@ -51,7 +40,6 @@ html, body {
     text-rendering: optimizeLegibility;
 }
 
-/* All numbers: Roboto Mono + tabular */
 .num,
 .font-mono,
 [data-num],
@@ -63,11 +51,9 @@ table th.num {
     font-feature-settings: "tnum" 1;
 }
 
-/* Numeric table columns right-aligned by convention */
 table th.num,
 table td.num { text-align: right; }
 
-/* Brand logo placeholder (kept) */
 .brand-logo {
     width: var(--logo-size);
     height: var(--logo-size);
@@ -86,11 +72,8 @@ table td.num { text-align: right; }
     flex-shrink: 0;
 }
 
-/* ---------------- Motion: page enter / exit ---------------- */
-/* View Transitions (progressive enhancement) */
 @view-transition { navigation: auto; }
 
-/* Page-enter: fade + rise. Stagger children of .stagger. */
 .page-enter {
     animation: ui-fade-up var(--dur-enter) var(--ease-smooth) both;
 }
@@ -111,7 +94,6 @@ table td.num { text-align: right; }
     to   { opacity: 1; transform: translateY(0);   }
 }
 
-/* Page-exit: applied by ui.js before navigation */
 .ui-exit {
     opacity: 0 !important;
     transform: translateY(-4px);
@@ -120,9 +102,6 @@ table td.num { text-align: right; }
     pointer-events: none;
 }
 
-/* ---------------- Motion: drawer ---------------- */
-/* The sidebar element already has Tailwind translate classes.
-   We override transform via .ui-drawer-open for smooth in/out. */
 #sidebar {
     transition: transform var(--dur-drawer) var(--ease-smooth) !important;
     will-change: transform;
@@ -132,11 +111,8 @@ table td.num { text-align: right; }
     will-change: opacity;
 }
 
-/* Body scroll lock while drawer open */
 body.ui-drawer-locked { overflow: hidden; }
 
-/* ---------------- Motion: micro-interactions ---------------- */
-/* Buttons: hover lift, press scale. Only transform/opacity. */
 button, a.ui-btn, .ui-btn {
     transition: transform 150ms var(--ease-smooth),
                 opacity 150ms var(--ease-smooth),
@@ -148,23 +124,17 @@ button, a.ui-btn, .ui-btn {
 button:hover, a.ui-btn:hover, .ui-btn:hover { transform: translateY(-1px); }
 button:active, a.ui-btn:active, .ui-btn:active { transform: scale(.98); }
 
-/* Table rows: hover tint */
 tbody tr { transition: background-color 150ms var(--ease-smooth); }
 tbody tr:hover { background-color: var(--ink-50); }
 
-/* Inputs: focus ring transition (color already handled by Tailwind) */
 input, select, textarea {
     transition: border-color 150ms var(--ease-smooth),
                 box-shadow 150ms var(--ease-smooth),
                 background-color 150ms var(--ease-smooth);
 }
 
-/* Icon cross-fade helper */
 .icon-crossfade { transition: opacity 180ms var(--ease-smooth); }
 
-/* ---------------- Punch page: emerald theme bridge ---------------- */
-/* punch.html / punch-employee-list.html use emerald accent.
-   Keep their identity but ensure font + focus + numeric rules apply. */
 body.punch-theme .font-mono,
 body.punch-theme .num,
 body.punch-theme #live-clock,
@@ -175,14 +145,12 @@ body.punch-theme #live-time {
     font-feature-settings: "tnum" 1;
 }
 
-/* ---------------- Focus visibility ---------------- */
 :focus-visible {
     outline: 2px solid var(--frost);
     outline-offset: 2px;
     border-radius: 6px;
 }
 
-/* ---------------- Scrollbar ---------------- */
 * { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
@@ -191,11 +159,9 @@ body.punch-theme #live-time {
 }
 *::-webkit-scrollbar-thumb:hover { background-color: #64748B; }
 
-/* ---------------- Safe area ---------------- */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .pt-safe { padding-top: env(safe-area-inset-top); }
 
-/* ---------------- Reduced motion ---------------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.001ms !important;

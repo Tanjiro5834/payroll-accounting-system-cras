@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  /* ---------- Drawer ---------- */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -54,7 +53,6 @@
     });
   });
 
-  /* ---------- Helpers ---------- */
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = String(str);
@@ -83,14 +81,11 @@
     return "\u20B1" + emp.hourly.toFixed(2) + "/hr";
   }
 
-  /* ---------- Data (mock — replaced by PHP) ---------- */
-  
   let employees = [];
   let filtered = employees.slice();
   let sortKey = null;
   let sortDir = "asc";
 
-  /* ---------- Render ---------- */
   const tbody = document.getElementById("employees-tbody");
   const cardsWrap = document.getElementById("employees-cards");
   const emptyState = document.getElementById("employees-empty");
@@ -224,7 +219,6 @@
     });
   }
 
-  /* ---------- Filter & Sort ---------- */
   const searchInput = document.getElementById("search-input");
   const roleFilter = document.getElementById("role-filter");
 

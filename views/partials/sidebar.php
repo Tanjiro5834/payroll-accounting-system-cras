@@ -41,7 +41,6 @@ $icon = static function (array $paths, string $cls) use ($e): string {
 };
 ?>
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-ink text-slate-100 transform -translate-x-full lg:translate-x-0 flex flex-col" aria-label="Main navigation">
-    <!-- Brand -->
     <div class="flex items-center gap-3 px-5 py-5 border-b border-white/5">
         <img src="assets/images/coronacion-logo.png" alt="Coronacion Logo" class="w-12 h-12 object-contain">
         <div class="min-w-0">
@@ -50,7 +49,6 @@ $icon = static function (array $paths, string $cls) use ($e): string {
         </div>
     </div>
 
-    <!-- User Block -->
     <div class="px-5 py-4 border-b border-white/5">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-full bg-coolant flex items-center justify-center flex-shrink-0">
@@ -63,7 +61,6 @@ $icon = static function (array $paths, string $cls) use ($e): string {
         </div>
     </div>
 
-    <!-- Nav -->
     <nav class="flex-1 overflow-y-auto px-3 py-4">
         <?php foreach ($sections as $heading => $items): ?>
             <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400"><?= $e($heading) ?></p>
@@ -89,7 +86,6 @@ $icon = static function (array $paths, string $cls) use ($e): string {
         <?php endforeach; ?>
     </nav>
 
-    <!-- Logout -->
     <div class="border-t border-white/5 p-3">
         <a href="index.php?page=login&amp;action=logout" class="<?= $offCls ?>">
             <?= $icon(['M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75'], 'text-slate-400 group-hover:text-frost transition-colors') ?>Sign out

@@ -40,7 +40,6 @@
     });
   });
 
-  /* Helpers */
   function escapeHtml(s) {
     const d = document.createElement("div");
     d.textContent = String(s);
@@ -73,7 +72,6 @@
     }, 3000);
   }
 
-  /* Year dropdown */
   const yearSelect = document.getElementById("year-select");
   const currentYear = new Date().getFullYear();
   for (let y = currentYear; y >= currentYear - 5; y--) {
@@ -84,7 +82,6 @@
     yearSelect.appendChild(opt);
   }
 
-  /* Report table */
   const tbody = document.getElementById("tmb-tbody");
   const COLUMNS = 9;
 
@@ -94,7 +91,6 @@
     paid: "bg-emerald-100 text-emerald-800",
   };
 
-  // Each status has one next step; paid is final.
   const NEXT_ACTION = {
     draft: { action: "approve", label: "Approve", confirm: null },
     approved: {
@@ -192,7 +188,6 @@
   yearSelect.addEventListener("change", load);
   load();
 
-  /* Compute */
   const computeBtn = document.getElementById("compute-btn");
 
   computeBtn.addEventListener("click", async function () {
@@ -215,7 +210,6 @@
     }
   });
 
-  /* Row actions: approve / mark paid (event delegation — rows are re-rendered on every load) */
   tbody.addEventListener("click", async function (e) {
     const button = e.target.closest("button[data-action]");
     if (!button) return;
@@ -235,7 +229,6 @@
     }
   });
 
-  /* CSV export — server builds the file; fetched as a blob so errors can show as a toast */
   document.getElementById("export-csv").addEventListener("click", async function () {
     const year = yearSelect.value;
     try {

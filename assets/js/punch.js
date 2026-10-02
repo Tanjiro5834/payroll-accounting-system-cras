@@ -190,13 +190,11 @@
       icon + '<span class="flex-1">' + escapeHtml(message) + "</span>";
     toastContainer.appendChild(toast);
 
-    // Animate in
     requestAnimationFrame(function () {
       toast.style.transform = "translateY(0)";
       toast.style.opacity = "1";
     });
 
-    // Auto-dismiss
     setTimeout(function () {
       toast.style.opacity = "0";
       toast.style.transform = "translateY(8px)";
@@ -284,7 +282,6 @@
           "Location captured (±" + Math.round(c.accuracy) + "m)";
       },
       function () {
-        // Silently continue — do not block punching
         gpsDot.className = "w-2 h-2 rounded-full bg-amber-400";
         gpsLabel.textContent = "Location unavailable — punching allowed";
       },

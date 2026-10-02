@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  /* Drawer */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -41,14 +40,12 @@
     });
   });
 
-  /* Helpers */
   function escapeHtml(s) {
     const d = document.createElement("div");
     d.textContent = String(s);
     return d.innerHTML;
   }
 
-  /* Mock data */
   const NAMES = [
     "Juan Dela Cruz",
     "Maria Santos",
@@ -170,7 +167,6 @@
         "</td>";
 
       tr.addEventListener("click", function () {
-        // Toggle JSON details row
         const next = tr.nextElementSibling;
         if (next && next.dataset.detailsFor === "1") {
           next.parentNode.removeChild(next);

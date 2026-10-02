@@ -1,10 +1,5 @@
-/* assets/js/flagged-punches.js */
 (function () {
   "use strict";
-
-  /* ================================================================
-     Utilities
-     ================================================================ */
 
   function esc(s) {
     if (s == null) return "";
@@ -30,7 +25,6 @@
 
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  // "2026-09-28" → "Sep 28, 2026"
   function fmtDate(iso) {
     if (!iso) return "";
     var parts = String(iso).split("-");
@@ -40,7 +34,6 @@
     return MONTHS[m - 1] + " " + d + ", " + y;
   }
 
-  // "2026-09-28 15:42:10" → "3:42 PM"
   function fmtTime(dt) {
     if (!dt) return "";
     var t = String(dt).split(" ")[1];
@@ -54,7 +47,6 @@
     return h12 + ":" + pad2(m) + " " + ampm;
   }
 
-  // "2026-09-28 15:42:10" → "Sep 28, 2026 · 3:42 PM"
   function fmtDateTime(dt) {
     if (!dt) return "";
     var parts = String(dt).split(" ");
@@ -70,8 +62,6 @@
     return PUNCH_LABELS[t] || t || "";
   }
 
-  // Derive chip category from flag_reason string.
-  // Matches the categories spelled out in the spec.
   function reasonCategory(reason) {
     var s = String(reason || "").toLowerCase();
     if (s.indexOf("early out") !== -1) return "early_out";
@@ -92,10 +82,6 @@
       other: "Other"
     }[key] || "Other";
   }
-
-  /* ================================================================
-     DOM refs
-     ================================================================ */
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -124,16 +110,12 @@
   var toastContainer  = $("toast-container");
   var srCount         = $("sr-count");
 
-  /* ================================================================
-     State
-     ================================================================ */
-
   var state = {
-    rows: [],              // full list from server (for current filter set)
-    visible: [],           // after client-side chip filter
-    selected: new Set(),   // ids selected for bulk
-    activeChip: null,      // null | "early_out" | ...
-    status: "open",        // "open" | "reviewed" | "all"
+    rows: [],
+    visible: [],
+    selected: new Set(),
+    activeChip: null,
+    status: "open",
     loading: false,
     reasonCounts: { early_out: 0, missing_pair: 0, short_lunch: 0, long_lunch: 0, ip_mismatch: 0, other: 0 }
   };
@@ -147,10 +129,6 @@
     };
   }
 
-  /* ================================================================
-     Toasts
-     ================================================================ */
-
   function showToast(message, type) {
     var ok = type === "success";
     var t = document.createElement("div");
@@ -160,7 +138,7 @@
     t.setAttribute("role", ok ? "status" : "alert");
     var span = document.createElement("span");
     span.className = "flex-1";
-    span.textContent = String(message == null ? "" : message); // safe — no HTML
+    span.textContent = String(message == null ? "" : message);
     t.appendChild(span);
     toastContainer.appendChild(t);
     setTimeout(function () {
@@ -170,17 +148,12 @@
     }, 3200);
   }
 
-  /* ================================================================
-     URL sync
-     ================================================================ */
-
   function readUrlState() {
     var qs = new URLSearchParams(location.search);
     var s = qs.get("status");
     if (s === "reviewed" || s === "all" || s === "open") state.status = s;
     else state.status = "open";
 
-    // Defaults: last 14 days inclusive
     var today = new Date();
     var defFrom = isoDate(addDays(today, -13));
     var defTo = isoDate(today);
@@ -192,7 +165,6 @@
 
     var emp = qs.get("employee_id");
     if (emp && /^\d+$/.test(emp) && emp !== "0") {
-      // set after employees load; stash desired value
       state._pendingEmployee = emp;
     }
 
@@ -214,10 +186,6 @@
     var url = location.pathname + "?" + qs.toString();
     history.replaceState(null, "", url);
   }
-
-  /* ================================================================
-     Filters
-     ================================================================ */
 
   function currentParams() {
     return {
@@ -258,10 +226,6 @@
     });
   }
 
-  /* ================================================================
-     Render
-     ================================================================ */
-
   function setLoading(isLoading) {
     state.loading = isLoading;
     skeletonWrap.classList.toggle("hidden", !isLoading);
@@ -274,14 +238,11 @@
   }
 
   function renderHeaderCounts() {
-    // Open count comes from full server data independent of chip filter.
     var openCount = state.rows.reduce(function (acc, r) {
       return acc + (r.reviewed_at ? 0 : 1);
     }, 0);
     openCountValue.textContent = String(openCount);
 
-    // Reason counts derived from the current rows (respects status/date/employee filters,
-    // but not the active chip — the chip counts remain stable while toggling).
     var counts = { early_out: 0, missing_pair: 0, short_lunch: 0, long_lunch: 0, ip_mismatch: 0, other: 0 };
     state.rows.forEach(function (r) {
       counts[reasonCategory(r.flag_reason)] += 1;
@@ -349,7 +310,6 @@
     tbody.replaceChildren();
     var rows = state.visible;
 
-    // Group by work_date to add subtle date headers, desktop.
     var lastDate = null;
     rows.forEach(function (r) {
       if (r.work_date !== lastDate) {
@@ -451,7 +411,6 @@
     setChipUI();
     renderBulkBar();
 
-    // Sync "select all visible" checkbox
     syncSelectAllBox();
   }
 
@@ -464,10 +423,6 @@
     selectAllBox.indeterminate = !allChecked && someChecked;
     selectAllBox.disabled = openVisible.length === 0;
   }
-
-  /* ================================================================
-     Data loading
-     ================================================================ */
 
   var lastFailedParams = null;
   var loadSeq = 0;
@@ -519,13 +474,8 @@
         employeeSelect.value = state._pendingEmployee;
       }
     } catch (err) {
-      // Non-fatal: employee filter just stays "All".
     }
   }
-
-  /* ================================================================
-     Row-removal animation
-     ================================================================ */
 
   function animateRowOut(rowId) {
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -568,20 +518,15 @@
         '<svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Reviewing…';
     }
 
-    // Optimistic: remove from state, animate the row out.
     var snapshot = state.rows.slice();
     var idx = state.rows.findIndex(function (r) { return String(r.id) === String(id); });
     var removed = state.rows.splice(idx, 1)[0];
     state.selected.delete(String(id));
 
-    // If currently filtered by "open" (default), remove row from view; otherwise keep it
-    // in state (it moved to reviewed) — reload will correct for the "all"/"reviewed" views.
     var underOpenFilter = state.status === "open";
     if (underOpenFilter) {
       animateRowOut(id);
     } else {
-      // Not filtered to open: the row still belongs in this list, just now shows Reviewed.
-      // Simplest: patch in place.
       removed.reviewed_at = new Date().toISOString().replace("T", " ").slice(0, 19);
       removed.reviewed_by_name = removed.reviewed_by_name || "You";
     }
@@ -689,7 +634,6 @@
     renderAll();
   });
 
-  // Select all visible
   selectAllBox.addEventListener("change", function () {
     var checked = selectAllBox.checked;
     state.visible.forEach(function (r) {
@@ -697,7 +641,6 @@
       if (checked) state.selected.add(String(r.id));
       else state.selected.delete(String(r.id));
     });
-    // Reflect on row checkboxes
     tbody.querySelectorAll("input.row-check").forEach(function (cb) {
       cb.checked = state.selected.has(cb.dataset.selectId);
     });
@@ -707,14 +650,12 @@
     renderBulkBar();
   });
 
-  // Row checkboxes (delegated on both containers)
   function onRowCheck(e) {
     var cb = e.target.closest("input.row-check");
     if (!cb) return;
     var id = cb.dataset.selectId;
     if (cb.checked) state.selected.add(id);
     else state.selected.delete(id);
-    // Mirror across desktop/mobile views
     document.querySelectorAll('input.row-check[data-select-id="' + CSS.escape(String(id)) + '"]').forEach(function (other) {
       other.checked = cb.checked;
     });
@@ -724,7 +665,6 @@
   tbody.addEventListener("change", onRowCheck);
   cardsWrap.addEventListener("change", onRowCheck);
 
-  // Row action buttons (delegated)
   function onRowAction(e) {
     var btn = e.target.closest('button[data-action="review"]');
     if (!btn) return;
@@ -733,7 +673,6 @@
   tbody.addEventListener("click", onRowAction);
   cardsWrap.addEventListener("click", onRowAction);
 
-  // Bulk bar
   bulkReviewBtn.addEventListener("click", reviewBulk);
   bulkClearBtn.addEventListener("click", function () {
     state.selected.clear();
@@ -743,14 +682,9 @@
     renderBulkBar();
   });
 
-  // Retry
   retryBtn.addEventListener("click", function () {
     if (lastFailedParams) loadRows();
   });
-
-  /* ================================================================
-     Init
-     ================================================================ */
 
   readUrlState();
   setSegmentUI();
@@ -758,7 +692,6 @@
   setLoading(true);
 
   loadEmployees().then(function () {
-    // After employee options load, re-apply any ?employee_id from URL and then load rows.
     if (state._pendingEmployee) employeeSelect.value = state._pendingEmployee;
     loadRows();
   });

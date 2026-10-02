@@ -1,9 +1,6 @@
 (function () {
   "use strict";
 
-  /* ============================================================
-               Mobile Drawer
-               ============================================================ */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -48,10 +45,6 @@
     });
   });
 
-
-  /* ============================================================
-               Helpers
-               ============================================================ */
   const REFRESH_MS = 60000;
   const FLAG_ICON =
     '<svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>';
@@ -68,8 +61,6 @@
     document.getElementById(id).textContent = text;
   }
 
-  // "2026-09-28 07:32:10" → "7:32 AM". Parsed by hand so the browser's timezone
-  // can't shift it: the server already returns Manila time.
   function formatTime(timestamp) {
     const [h, m] = String(timestamp).split(" ")[1].split(":").map(Number);
     const suffix = h < 12 ? "AM" : "PM";
@@ -96,9 +87,6 @@
     return '<p class="px-4 sm:px-5 py-10 text-center text-sm text-slate-500">' + escapeHtml(message) + "</p>";
   }
 
-  /* ============================================================
-               KPI cards
-               ============================================================ */
   function renderKpis(kpi, pendingPayroll) {
     setText("kpi-active", kpi.total_active);
     setText("kpi-active-sub", kpi.on_leave + " on leave today");
@@ -115,9 +103,6 @@
     setText("kpi-payroll", pendingPayroll.length);
   }
 
-  /* ============================================================
-               Today's activity
-               ============================================================ */
   const activityTbody = document.getElementById("activity-tbody");
   const activityMobile = document.getElementById("activity-mobile");
 
@@ -182,9 +167,6 @@
     });
   }
 
-  /* ============================================================
-               Flagged anomalies
-               ============================================================ */
   const flaggedList = document.getElementById("flagged-list");
 
   function flaggedItem(item) {
@@ -215,14 +197,10 @@
     });
   }
 
-  /* ============================================================
-               Load + auto-refresh
-               ============================================================ */
   function showLoadError(error) {
     setText("activity-sub", "Couldn't load: " + error.message);
   }
 
-  // All four requests run in parallel; the page renders once they're all back.
   async function load() {
     try {
       const [kpi, activity, flagged, pendingPayroll] = await Promise.all([

@@ -1,4 +1,3 @@
-<!-- punch.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,7 +25,6 @@
 </head>
 <body class="punch-theme font-sans bg-slate-50 text-slate-900 min-h-screen">
 
-    <!-- Top Bar -->
     <header class="bg-white border-b border-slate-200 shadow-sm">
         <div class="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
             <a href="index.php?page=punch-employee-list" aria-label="Back to employee list" class="flex items-center justify-center w-10 h-10 -ml-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors flex-shrink-0">
@@ -48,26 +46,21 @@
 
     <main class="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-32">
 
-        <!-- Live Clock -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center mb-5 page-enter">
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Current Time</p>
             <p id="live-clock" class="num text-4xl sm:text-5xl font-semibold text-slate-900 leading-none">--:--:--</p>
             <p id="live-date" class="text-sm text-slate-500 mt-2">Loading…</p>
         </div>
 
-        <!-- Punch Status Row -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 page-enter">
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Today's Punches</p>
             <div id="status-row" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                <!-- Populated by JS -->
             </div>
         </div>
 
-        <!-- Punch Buttons -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-5 page-enter">
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Record Punch</p>
             <form id="punch-form" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <!-- Hidden fields -->
                 <input type="hidden" name="employee_id" id="employee_id" value="">
                 <input type="hidden" name="gps_lat" id="gps_lat" value="">
                 <input type="hidden" name="gps_lng" id="gps_lng" value="">
@@ -75,11 +68,9 @@
                 <input type="hidden" name="device_fingerprint" id="device_fingerprint" value="">
                 <input type="hidden" name="punch_type" id="punch_type" value="">
 
-                <!-- Buttons injected by JS -->
             </form>
         </div>
 
-        <!-- GPS Status (subtle) -->
         <div class="flex items-center justify-center gap-2 text-xs text-slate-400">
             <span id="gps-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
             <span id="gps-label">Acquiring location…</span>
@@ -87,7 +78,6 @@
 
     </main>
 
-    <!-- Sticky Bottom Bar -->
     <div class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)] z-20">
         <div class="max-w-2xl mx-auto px-4 sm:px-6 py-3">
             <a href="index.php?page=punch-employee-list" class="ui-btn flex items-center justify-center gap-2 w-full min-h-[44px] py-3 px-4 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
@@ -99,7 +89,6 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-24 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite"></div>
 
     <script src="assets/js/api.js"></script>

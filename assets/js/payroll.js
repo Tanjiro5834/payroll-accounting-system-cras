@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  /* ---------- Drawer ---------- */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -42,7 +41,6 @@
     });
   });
 
-  /* ---------- Helpers ---------- */
   function escapeHtml(s) {
     const d = document.createElement("div");
     d.textContent = String(s);
@@ -78,7 +76,6 @@
     }, 3000);
   }
 
-  /* ---------- Elements ---------- */
   const resultsSection = document.getElementById("results-section");
   const emptyState = document.getElementById("empty-state");
   const tbody = document.getElementById("payroll-tbody");
@@ -97,7 +94,6 @@
     paid: "bg-emerald-100 text-emerald-800",
   };
 
-  // One next step per status; paid is final.
   const NEXT_ACTION = {
     computed: { action: "approve", label: "Approve", done: "Approved.", confirm: null },
     approved: {
@@ -108,12 +104,10 @@
     },
   };
 
-  /* ---------- Filters ---------- */
   function isoDate(d) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
-  // Default period: this week, Monday → Saturday (weekly payroll is released on Saturday).
   function setDefaultPeriod() {
     const today = new Date();
     const monday = new Date(today);
@@ -161,7 +155,6 @@
     }
   }
 
-  /* ---------- Table ---------- */
   function minutesCell(n) {
     return (
       '<td class="px-4 py-3 text-right font-mono text-xs ' +
@@ -205,7 +198,6 @@
     return tr;
   }
 
-  // Display totals only; the saved amounts come from the server's bcmath math.
   function totalsRow(rows) {
     const sum = function (key) {
       return rows.reduce(function (acc, r) { return acc + Number(r[key]); }, 0);
@@ -239,8 +231,6 @@
     document.getElementById("results-count").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s");
   }
 
-  /* ---------- Load / compute ---------- */
-  // Shows what's already saved for the period, without recomputing.
   async function loadSaved() {
     const f = filters();
     if (!f.start || !f.end || f.start > f.end) return;
@@ -273,7 +263,6 @@
     el.addEventListener("change", loadSaved);
   });
 
-  /* ---------- Row actions (event delegation — rows are re-rendered on every load) ---------- */
   tbody.addEventListener("click", async function (e) {
     const button = e.target.closest("button[data-action]");
     if (!button) return;
@@ -292,7 +281,6 @@
     }
   });
 
-  /* ---------- CSV export (server builds the file; fetched as a blob so errors show as a toast) ---------- */
   exportBtn.addEventListener("click", async function () {
     const f = filters();
     try {
@@ -319,7 +307,6 @@
     }
   });
 
-  /* ---------- Init ---------- */
   setDefaultPeriod();
   loadEmployees();
   loadSaved();

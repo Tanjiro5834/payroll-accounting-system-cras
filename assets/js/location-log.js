@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  /* Drawer */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -41,14 +40,12 @@
     });
   });
 
-  /* Helpers */
   function escapeHtml(s) {
     const d = document.createElement("div");
     d.textContent = String(s);
     return d.innerHTML;
   }
 
-  /* Mock */
   const PUNCHES = ["AM IN", "AM OUT", "PM IN", "PM OUT", "OT IN", "OT OUT"];
   const FLAGS = [
     null,

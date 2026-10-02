@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  /* ---------- Drawer ---------- */
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("drawer-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
@@ -42,7 +41,6 @@
     });
   });
 
-  /* ---------- Helpers ---------- */
   function getParam(name) {
     return new URLSearchParams(window.location.search).get(name);
   }
@@ -63,8 +61,6 @@
     return div.innerHTML;
   }
 
-  /* ---------- Edit Mode Prefill (mock — replaced by PHP) ---------- */
-    /* ---------- Edit mode ---------- */
   const editId = getParam("id");
   let hasStoredPhoto = false;
   let removeStoredPhoto = false;
@@ -108,7 +104,6 @@
     }
   }
 
-  /* ---------- Avatar Preview ---------- */
   const photoInput = document.getElementById("photo");
   const avatarPreview = document.getElementById("avatar-preview");
   const avatarInitials = document.getElementById("avatar-initials");
@@ -119,7 +114,6 @@
     const file = photoInput.files && photoInput.files[0];
     if (!file) return;
 
-    // Validate size (2MB)
     if (file.size > MAX_PHOTO_BYTES) {
       showToast("Photo is larger than 2MB.", "error");
       photoInput.value = "";
@@ -148,7 +142,6 @@
     removePhotoBtn.classList.add("hidden");
   });
 
-  // Update initials live when name changes
   document.getElementById("full_name").addEventListener("input", function () {
     if (photoInput.files && photoInput.files.length) return;
     const name = this.value.trim();
@@ -156,7 +149,6 @@
     if (el) el.textContent = name ? getInitials(name) : "?";
   });
 
-  /* ---------- Pay frequency: show relevant rate field ---------- */
   const payFreq = document.getElementById("pay_frequency");
   const hourlyWrap = document.getElementById("hourly-wrap");
   const monthlyWrap = document.getElementById("monthly-wrap");
@@ -177,7 +169,6 @@
   payFreq.addEventListener("change", updateRateVisibility);
   updateRateVisibility();
 
-  /* ---------- Toast ---------- */
   const toastContainer = document.getElementById("toast-container");
   function showToast(message, type) {
     const isSuccess = type === "success";
@@ -199,11 +190,9 @@
     }, 3000);
   }
 
-  //form submit
   const form = document.getElementById("employee-form");
   const saveBtn = document.getElementById("save-btn");
 
-  // Only the rate field that's visible for the chosen frequency is kept; the hidden one is cleared.
   function payload() {
     const value = function (id) { return document.getElementById(id).value.trim(); };
     const hourlyShown = !hourlyWrap.classList.contains("hidden");
@@ -246,7 +235,6 @@
       try {
         await savePhoto(saved.id);
       } catch (photoError) {
-        // The record is saved; only the photo failed. Say so instead of hiding it.
         showToast("Saved, but the photo failed: " + photoError.message, "error");
         saveBtn.disabled = false;
         return;

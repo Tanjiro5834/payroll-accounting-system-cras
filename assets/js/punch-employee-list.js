@@ -1,4 +1,3 @@
-/* assets/js/punch-employee-list.js */
 (function () {
   "use strict";
 
@@ -29,10 +28,6 @@
   updateClock();
   setInterval(updateClock, 1000);
 
-  /* ================================================================
-     State + helpers
-     ================================================================ */
-
   var employees = [];
   var canPickAny = false;
 
@@ -52,10 +47,6 @@
     return div.innerHTML;
   }
 
-  /* ================================================================
-     DOM refs
-     ================================================================ */
-
   var grid = document.getElementById("employee-grid");
   var emptyState = document.getElementById("empty-state");
   var errorState = document.getElementById("error-state");
@@ -67,15 +58,10 @@
   var resultCount = document.getElementById("result-count");
   var adminLink = document.getElementById("admin-link");
 
-  /* ================================================================
-     Visibility helpers
-     ================================================================ */
-
   function show(el) { if (el) el.classList.remove("hidden"); }
   function hide(el) { if (el) el.classList.add("hidden"); }
 
   function setState(which) {
-    // which: "loading" | "list" | "empty" | "error"
     if (which === "loading") {
       show(skeletonGrid);
       hide(grid);
@@ -99,10 +85,6 @@
     }
   }
 
-  /* ================================================================
-     Result count (aria-live)
-     ================================================================ */
-
   function updateResultCount(shown, total) {
     if (!resultCount) return;
     if (total === 0) {
@@ -116,14 +98,9 @@
     }
   }
 
-  /* ================================================================
-     Render
-     ================================================================ */
-
   var staggerIndex = 0;
 
   function buildCard(emp) {
-    // Wrapper as listitem (role="listitem") with the <a> inside.
     var wrap = document.createElement("div");
     wrap.setAttribute("role", "listitem");
 
@@ -137,7 +114,6 @@
       "active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-frost focus-visible:ring-offset-2 " +
       "transition-[transform,box-shadow,border-color] duration-200";
 
-    // Stagger (cap 12) — animate via inline animation-delay + ui.css keyframes
     var delay = Math.min(staggerIndex, 12) * 30;
     staggerIndex += 1;
     card.style.animation = "ui-fade-up 260ms cubic-bezier(.2,.8,.2,1) both";
@@ -184,10 +160,6 @@
     updateResultCount(list.length, employees.length);
   }
 
-  /* ================================================================
-     Search
-     ================================================================ */
-
   function filterEmployees() {
     var query = (searchInput.value || "").trim().toLowerCase();
 
@@ -209,7 +181,6 @@
 
   searchInput.addEventListener("input", filterEmployees);
 
-  // Esc clears the field
   searchInput.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if (searchInput.value) {
@@ -218,7 +189,6 @@
         filterEmployees();
       }
     } else if (e.key === "Enter") {
-      // Enter opens the card if exactly 1 result is visible
       var cards = grid.querySelectorAll('a[href^="index.php?page=punch"]');
       if (cards.length === 1) {
         e.preventDefault();
@@ -235,10 +205,6 @@
     });
   }
 
-  /* ================================================================
-     Load
-     ================================================================ */
-
   async function load() {
     setState("loading");
     if (errorMessage) errorMessage.textContent = "";
@@ -246,7 +212,6 @@
     try {
       var data = await api.get("punch-employee-list", "index");
 
-      // Single-employee users skip the picker entirely.
       if (!data.can_pick_any && data.employees.length === 1) {
         location.replace(
           "index.php?page=punch&employee_id=" +
@@ -258,7 +223,6 @@
       employees = Array.isArray(data.employees) ? data.employees : [];
       canPickAny = !!data.can_pick_any;
 
-      // Reveal the admin dashboard link only for admins.
       if (adminLink) {
         if (canPickAny) adminLink.classList.remove("hidden");
         else adminLink.classList.add("hidden");
@@ -268,7 +232,6 @@
       renderEmployees(employees);
     } catch (error) {
       setState("error");
-      // textContent — never innerHTML — so the message can't inject markup.
       if (errorMessage) {
         errorMessage.textContent =
           (error && error.message ? error.message : "Unknown error.") +

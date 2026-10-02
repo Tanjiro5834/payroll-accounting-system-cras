@@ -1,4 +1,3 @@
-<!-- views/punch/flagged-punches.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,11 +39,9 @@
 </head>
 <body class="font-sans bg-ink-50 text-ink min-h-screen antialiased">
 
-    <!-- MOBILE TOP BAR -->
     <header class="lg:hidden sticky top-0 z-30 bg-ink text-white shadow-sm pt-safe">
         <div class="px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
-                <!-- LOGO PLACEHOLDER: replace with <img src="assets/img/logo.svg"> -->
                 <div class="brand-logo" style="--logo-size: 2.25rem; background: #0E7490; border-color: #22D3EE; color: #ECFEFF;">LOGO</div>
                 <div>
                     <p class="text-sm font-bold tracking-tight leading-tight">Coronacion</p>
@@ -60,14 +57,11 @@
 
     <div id="drawer-overlay" class="lg:hidden fixed inset-0 bg-ink/70 z-40 opacity-0 pointer-events-none transition-opacity duration-[220ms]"></div>
 
-    <!-- SIDEBAR (copied from payroll.html; only active nav item changed) -->
     <!-- @sidebar -->
 
-    <!-- MAIN -->
     <main class="lg:pl-72">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-32">
 
-            <!-- Page Header -->
             <div class="mb-6 lg:mb-8 page-enter flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
                     <div class="flex items-center gap-3 flex-wrap">
@@ -81,11 +75,9 @@
                 </div>
             </div>
 
-            <!-- Filters -->
             <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-6 mb-5 page-enter">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
 
-                    <!-- Status segmented control -->
                     <div class="md:col-span-4">
                         <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Status</span>
                         <div id="status-segment" role="radiogroup" aria-label="Filter by status" class="inline-flex w-full rounded-xl border border-line bg-ink-50 p-1">
@@ -95,19 +87,16 @@
                         </div>
                     </div>
 
-                    <!-- Date from -->
                     <div class="md:col-span-3">
                         <label for="filter-date-from" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date from</label>
                         <input type="date" id="filter-date-from" class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
                     </div>
 
-                    <!-- Date to -->
                     <div class="md:col-span-3">
                         <label for="filter-date-to" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date to</label>
                         <input type="date" id="filter-date-to" class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
                     </div>
 
-                    <!-- Reset -->
                     <div class="md:col-span-2">
                         <button id="reset-filters" type="button" class="ui-btn w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-line bg-white text-slate-700 text-sm font-semibold hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[44px]">
                             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
@@ -115,7 +104,6 @@
                         </button>
                     </div>
 
-                    <!-- Employee -->
                     <div class="md:col-span-4">
                         <label for="filter-employee" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Employee</label>
                         <select id="filter-employee" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
@@ -123,11 +111,9 @@
                         </select>
                     </div>
 
-                    <!-- Spacer for grid alignment -->
                     <div class="md:col-span-8 hidden md:block"></div>
                 </div>
 
-                <!-- Summary chips -->
                 <div id="summary-chips" class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-line" role="group" aria-label="Filter by reason category">
                     <button type="button" data-chip="early_out" aria-pressed="false" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost transition-colors min-h-[36px]">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -162,7 +148,6 @@
                 </div>
             </section>
 
-            <!-- Error state -->
             <section id="error-state" class="hidden bg-white rounded-2xl border border-line shadow-sm py-12 px-6 text-center">
                 <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-50 mb-3">
                     <svg class="w-7 h-7 text-negative" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
@@ -175,7 +160,6 @@
                 </button>
             </section>
 
-            <!-- Desktop table -->
             <section id="table-wrap" class="hidden bg-white rounded-2xl border border-line shadow-sm overflow-hidden page-enter">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -200,10 +184,8 @@
                 </div>
             </section>
 
-            <!-- Mobile cards -->
             <div id="cards-wrap" class="hidden md:hidden space-y-3"></div>
 
-            <!-- Skeleton -->
             <section id="skeleton-wrap" class="hidden bg-white rounded-2xl border border-line shadow-sm overflow-hidden">
                 <div class="px-4 py-3 border-b border-line bg-ink-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Loading flagged punches…</div>
                 <ul class="divide-y divide-line">
@@ -213,7 +195,6 @@
                 </ul>
             </section>
 
-            <!-- Empty state -->
             <section id="empty-flag-state" class="hidden bg-white rounded-2xl border border-line shadow-sm py-16 px-6 text-center page-enter">
                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-4">
                     <svg class="w-8 h-8 text-positive" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
@@ -225,7 +206,6 @@
         </div>
     </main>
 
-    <!-- Sticky bulk bar -->
     <div id="bulk-bar" class="fixed bottom-0 inset-x-0 z-40 translate-y-full opacity-0 transition-transform duration-300 ease-out lg:pl-72" aria-hidden="true">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-4">
             <div class="flex items-center justify-between gap-3 bg-ink text-white rounded-2xl shadow-lg px-4 py-3 border border-white/10">
@@ -244,7 +224,6 @@
         </div>
     </div>
 
-    <!-- Live region for counts / toasts -->
     <div id="toast-container" class="fixed bottom-24 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite" aria-atomic="false"></div>
     <p id="sr-count" class="sr-only" aria-live="polite"></p>
 
