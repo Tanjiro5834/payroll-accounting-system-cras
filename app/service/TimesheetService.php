@@ -38,6 +38,21 @@ class TimesheetService {
         return count($rows);
     }
 
+    // Same as summarizePeriod() for one employee — cheap enough to run on every dashboard load,
+    // so the employee's stats reflect today's punches without waiting for payroll to be computed.
+    public function summarizeEmployeePeriod(int $employeeId, string $start, string $end): int {
+        $rows = [];
+        $grouped = $this->groupByEmployeeDay($this->punches->findByEmployeeAndDateRange($employeeId, $start, $end));
+        foreach ($grouped[$employeeId] ?? [] as $date => $times) {
+            $rows[] = $this->summarizeDay($employeeId, $date, $times);
+        }
+
+        if ($rows) {
+            $this->summaries->upsertMany($rows);
+        }
+        return count($rows);
+    }
+
     /**
      * Rules (schedule from system settings):
      * - Regular hours = time worked INSIDE the schedule (AM: work start → lunch start, PM: lunch end → work end),

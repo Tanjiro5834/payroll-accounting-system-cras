@@ -161,8 +161,10 @@ class UserService {
 
     public function changePassword(int $id, string $currentPassword, string $newPassword): bool {
         $existing = $this->requireUser($id);
+        // findById() returns public columns only; the hash comes from the full row.
+        $full = $this->repository->findByUsername((string) $existing['username']);
 
-        if (!password_verify($currentPassword, (string) $existing['password_hash'])) {
+        if (!$full || !password_verify($currentPassword, (string) $full['password_hash'])) {
             throw new DomainException('Current password is incorrect.');
         }
 

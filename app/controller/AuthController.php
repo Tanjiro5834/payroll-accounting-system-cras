@@ -29,7 +29,7 @@ class AuthController {
                 return;
             }
 
-            $home = $user['role'] === 'employee' ? 'punch-employee-list' : 'dashboard';
+            $home = $user['role'] === 'employee' ? 'my-dashboard' : 'dashboard';
             $this->redirect("index.php?page={$home}");
         } catch (InvalidArgumentException $e) {
             $this->redirect('index.php?page=login&error=1');

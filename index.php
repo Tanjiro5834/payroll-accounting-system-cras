@@ -13,7 +13,8 @@ use App\Controller\PayrollController;
 use App\Controller\PunchController;
 use App\Controller\ReportController;
 use App\Controller\ThirteenthMonthController;
-use App\Controller\FlaggedPunchController;   
+use App\Controller\FlaggedPunchController;
+use App\Controller\MyDashboardController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\RoleMiddleware;
@@ -37,6 +38,7 @@ function renderPartial(string $name, array $vars): string {
 
 $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
+    'my-dashboard'     => ['dashboard/my-dashboard',            MyDashboardController::class,     'employee', ['summary', 'attendance', 'trend', 'payslips', 'payslip', 'rateHistory', 'uploadPhoto', 'removePhoto', 'changePassword']],
     'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
     'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto']],
     'employee-form'    => ['employees/employee-form',           EmployeeController::class,        'admin',    ['show', 'store', 'update']],

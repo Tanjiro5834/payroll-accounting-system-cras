@@ -77,7 +77,7 @@ class PayrollController extends BaseController {
         $this->requireMethod('POST');
 
         $this->guard(function () use ($id) {
-            $this->service->approve($id);
+            $this->service->approve($id, $this->sessionUserId() ?: null);
             Response::json(['ok' => true]);
         }, 'Failed to approve payroll.');
     }

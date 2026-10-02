@@ -3,6 +3,7 @@ namespace App\Controller;
 
 use App\Entity\Employee;
 use App\Helper\Response;
+use App\Middleware\AuthMiddleware;
 use App\Service\EmployeeService;
 
 class EmployeeController extends BaseController {
@@ -31,7 +32,11 @@ class EmployeeController extends BaseController {
     // GET ?page=employees&action=show&id=5 — full record for the edit form
     public function show(int $id): void {
         $employee = $this->service->getById($id) ?? Response::error('Employee not found.', 404);
-        Response::json($employee->toArray());
+        $isOwner  = $this->isOwner();
+        Response::json($employee->toArray() + [
+            'can_edit_identity' => $isOwner,
+            'locked_fields'     => $this->service->lockedFields($employee, $isOwner),
+        ]);
     }
 
     // POST ?page=employees&action=store   body: JSON employee fields
@@ -50,7 +55,7 @@ class EmployeeController extends BaseController {
         $input = $this->input();
 
         $this->guard(function () use ($id, $input) {
-            $this->service->update($id, $input);
+            $this->service->update($id, $input, $this->isOwner());
             Response::json(['ok' => true, 'id' => $id]);
         }, 'Failed to update employee.');
     }
@@ -81,7 +86,7 @@ class EmployeeController extends BaseController {
         }
 
         $this->guard(function () use ($id) {
-            Response::json(['ok' => true, 'url' => $this->service->uploadProfilePhoto($id, $_FILES['photo'])]);
+            Response::json(['ok' => true, 'url' => $this->service->uploadProfilePhoto($id, $_FILES['photo'], $this->isOwner())]);
         }, 'Failed to upload photo.');
     }
 
@@ -89,9 +94,13 @@ class EmployeeController extends BaseController {
     public function removePhoto(int $id): void {
         $this->requireMethod('POST');
         $this->guard(function () use ($id) {
-            $this->service->deleteProfilePhoto($id);
+            $this->service->deleteProfilePhoto($id, $this->isOwner());
             Response::json(['ok' => true]);
         }, 'Failed to remove photo.');
+    }
+
+    private function isOwner(): bool {
+        return (AuthMiddleware::user()['role'] ?? '') === 'owner';
     }
 
     // List view: no government IDs.

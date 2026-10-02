@@ -192,6 +192,20 @@ class PayrollRepository extends BaseRepository {
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
+    public function approve(int $id, ?int $approvedBy): bool {
+        $stmt = $this->db->prepare(
+            "UPDATE payroll_periods
+             SET status = 'approved', approved_by = :approved_by, approved_at = NOW()
+             WHERE id = :id
+               AND status = 'computed'"
+        );
+        $stmt->bindValue(':approved_by', $approvedBy, $approvedBy === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
     public function updateStatus(int $id, string $fromStatus, string $toStatus, ?int $computedBy = null): bool {
         $stmt = $this->db->prepare(
             "UPDATE payroll_periods

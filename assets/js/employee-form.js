@@ -94,6 +94,61 @@
     } else {
       document.getElementById("avatar-initials").textContent = getInitials(emp.full_name);
     }
+
+    applyLocks(emp);
+  }
+
+  // Identity details are set once at hiring. The server enforces this; the UI only mirrors it.
+  const LOCKED_INPUTS = {
+    full_name: "full_name",
+    role: "role",
+    date_hired: "date_hired",
+    sss_number: "sss",
+    philhealth_number: "philhealth",
+    pagibig_number: "pagibig",
+    tin_number: "tin",
+  };
+  const LOCK_TITLE = "Locked after hiring. Only the owner can change this.";
+
+  function applyLocks(emp) {
+    const locked = emp.locked_fields || [];
+    locked.forEach(function (field) {
+      const input = document.getElementById(LOCKED_INPUTS[field]);
+      if (!input) return;
+      input.disabled = true;
+      input.title = LOCK_TITLE;
+      input.classList.remove("bg-white");
+      input.classList.add("bg-ink-100", "text-slate-500", "cursor-not-allowed");
+      const label = document.querySelector('label[for="' + input.id + '"]');
+      if (label && !label.querySelector(".lock-icon")) {
+        label.insertAdjacentHTML(
+          "beforeend",
+          ' <svg class="lock-icon inline w-3 h-3 -mt-0.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>'
+        );
+      }
+    });
+
+    const photoLocked = !emp.can_edit_identity && Boolean(emp.profile_photo_url);
+    if (photoLocked) {
+      photoInput.classList.add("hidden");
+      removePhotoBtn.remove();
+      const hint = photoInput.parentElement.querySelector("p.text-slate-400");
+      if (hint) hint.classList.add("hidden");
+      photoInput.insertAdjacentHTML(
+        "afterend",
+        '<p class="text-xs text-slate-500 mt-1">Only the employee (from their dashboard) or the owner can change this photo.</p>'
+      );
+    }
+
+    if (locked.length || photoLocked) {
+      form.insertAdjacentHTML(
+        "afterbegin",
+        '<div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 page-enter">' +
+          "<strong>Identity details are locked.</strong> Name, job title, date hired and government IDs were set at hiring. " +
+          "You can still update pay settings and status. Only the owner can correct a locked field." +
+          "</div>"
+      );
+    }
   }
 
   async function loadEmployee() {

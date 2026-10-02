@@ -3,7 +3,9 @@ namespace App\Service;
 
 use App\Entity\Employee;
 use App\Helper\FileHelper;
+use App\Middleware\AuthMiddleware;
 use App\Repository\EmployeeRepository;
+use App\Repository\RateHistoryRepository;
 use DateTimeImmutable;
 use DateTimeZone;
 use DomainException;
@@ -21,12 +23,44 @@ class EmployeeService {
 
     private const UPLOAD_SUBDIR = 'uploads/employees/';
 
+    // Set once at hiring. After that only the owner can change a value that is already filled in;
+    // an admin may still fill a field that was left blank (one-time entry).
+    public const IDENTITY_FIELDS = [
+        'full_name'         => 'Full name',
+        'role'              => 'Job title',
+        'date_hired'        => 'Date hired',
+        'sss_number'        => 'SSS number',
+        'philhealth_number' => 'PhilHealth number',
+        'pagibig_number'    => 'Pag-IBIG number',
+        'tin_number'        => 'TIN',
+    ];
+
+    private const RATE_FIELDS = ['pay_frequency', 'hourly_rate', 'monthly_rate'];
+
     private EmployeeRepository $repository;
     private AuditService $audit;
+    private RateHistoryRepository $rates;
 
-    public function __construct(?EmployeeRepository $repository = null, ?AuditService $audit = null) {
+    public function __construct(
+        ?EmployeeRepository $repository = null,
+        ?AuditService $audit = null,
+        ?RateHistoryRepository $rates = null
+    ) {
         $this->repository = $repository ?? new EmployeeRepository();
         $this->audit      = $audit      ?? new AuditService();
+        $this->rates      = $rates      ?? new RateHistoryRepository();
+    }
+
+    // Which identity fields this actor may NOT change for this employee (filled in + not owner).
+    public function lockedFields(Employee $employee, bool $canEditIdentity): array {
+        if ($canEditIdentity) {
+            return [];
+        }
+        $data = $employee->toArray();
+        return array_values(array_filter(
+            array_keys(self::IDENTITY_FIELDS),
+            fn(string $f) => ($data[$f] ?? null) !== null && (string) $data[$f] !== ''
+        ));
     }
 
     public function getAll(): array {
@@ -46,21 +80,48 @@ class EmployeeService {
         $id = $this->repository->create(Employee::fromArray($clean));
         (new StatutoryContributionService())->enroll($id, $clean['date_hired'] ?? date('Y-m-d'));
 
+        $this->rates->record(
+            $id,
+            $clean['pay_frequency'],
+            $clean['hourly_rate'] ?? null,
+            $clean['monthly_rate'] ?? null,
+            $clean['date_hired'] ?? $this->today(),
+            $this->actorId()
+        );
+
         $this->audit->record('EMPLOYEE_CREATE', $id, array_intersect_key($clean, array_flip([
             'full_name', 'role', 'pay_frequency', 'hourly_rate', 'monthly_rate', 'date_hired',
         ])));
         return $id;
     }
 
-    public function update(int $id, array $data): bool {
-        $current = $this->requireEmployee($id)->toArray();
-        $merged = array_replace($current, $this->validateAndNormalize($data, true), ['id' => $id]);
+    public function update(int $id, array $data, bool $canEditIdentity = false): bool {
+        $employee = $this->requireEmployee($id);
+        $current  = $employee->toArray();
+        $clean    = $this->validateAndNormalize($data, true);
+        $merged   = array_replace($current, $clean, ['id' => $id]);
+
+        $this->assertIdentityUnchanged($employee, $merged, $canEditIdentity);
 
         if (empty($merged['hourly_rate']) && empty($merged['monthly_rate'])) {
             throw new InvalidArgumentException('Validation failed: Provide an hourly or a monthly rate.');
         }
 
         $this->repository->update(Employee::fromArray($merged));
+
+        if (AuditService::diff(
+            array_intersect_key($current, array_flip(self::RATE_FIELDS)),
+            array_intersect_key($merged, array_flip(self::RATE_FIELDS))
+        )) {
+            $this->rates->record(
+                $id,
+                (string) $merged['pay_frequency'],
+                $merged['hourly_rate'] ?: null,
+                $merged['monthly_rate'] ?: null,
+                $this->today(),
+                $this->actorId()
+            );
+        }
 
         $changes = AuditService::diff($current, $merged, ['id', 'profile_photo_url']);
         if ($changes) {
@@ -97,8 +158,10 @@ class EmployeeService {
         return $ok;
     }
 
-    public function uploadProfilePhoto(int $employeeId, array $file): string {
+    // $canReplace = false: admins may add a photo once, but not swap or remove an existing one.
+    public function uploadProfilePhoto(int $employeeId, array $file, bool $canReplace = true): string {
         $employee = $this->requireEmployee($employeeId);
+        $this->assertPhotoEditable($employee, $canReplace);
 
         $check = FileHelper::validateImage($file, self::MAX_UPLOAD_BYTES);
         if (!$check['valid']) {
@@ -123,8 +186,9 @@ class EmployeeService {
         return $relative;
     }
 
-    public function deleteProfilePhoto(int $employeeId): bool {
+    public function deleteProfilePhoto(int $employeeId, bool $canReplace = true): bool {
         $employee = $this->requireEmployee($employeeId);
+        $this->assertPhotoEditable($employee, $canReplace);
         $current  = $employee->getProfilePhotoUrl();
 
         if ($current === null || $current === '') {
@@ -377,6 +441,42 @@ class EmployeeService {
         $data['profile_photo_url'] = $url;
 
         return $this->repository->update(Employee::fromArray($data));
+    }
+
+    private function assertIdentityUnchanged(Employee $employee, array $merged, bool $canEditIdentity): void {
+        $locked = $this->lockedFields($employee, $canEditIdentity);
+        if (!$locked) {
+            return;
+        }
+
+        $current = $employee->toArray();
+        $changed = AuditService::diff(
+            array_intersect_key($current, array_flip($locked)),
+            array_intersect_key($merged, array_flip($locked))
+        );
+        if ($changed) {
+            $labels = array_map(fn(string $f) => self::IDENTITY_FIELDS[$f], array_keys($changed));
+            throw new DomainException('Locked after hiring — only the owner can change: ' . implode(', ', $labels) . '.');
+        }
+    }
+
+    private function assertPhotoEditable(Employee $employee, bool $canReplace): void {
+        $photo = $employee->getProfilePhotoUrl();
+        if (!$canReplace && $photo !== null && $photo !== '') {
+            throw new DomainException('Locked after hiring — only the owner or the employee can change the profile photo.');
+        }
+    }
+
+    private function actorId(): ?int {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return null;
+        }
+        $user = AuthMiddleware::user();
+        return isset($user['id']) ? (int) $user['id'] : null;
+    }
+
+    private function today(): string {
+        return (new DateTimeImmutable('now', new DateTimeZone(self::TIMEZONE)))->format('Y-m-d');
     }
 
     private function requireEmployee(int $id): Employee {

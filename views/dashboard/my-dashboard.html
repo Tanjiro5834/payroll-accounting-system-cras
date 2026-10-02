@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>My Dashboard — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/theme.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/ui.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: {
+                            50: '#F6F8FB', 100: '#EEF2F7', 200: '#E1E7F0', 300: '#C3CBDA',
+                            400: '#8B98AE', 500: '#5A6A85', 600: '#3A4A66', 700: '#26344F',
+                            800: '#1B2740', 900: '#111A2E', DEFAULT: '#0B1220'
+                        },
+                        coolant: { DEFAULT: '#0E7490', hover: '#155E75', tint: '#E0F2FE' },
+                        frost: '#22D3EE',
+                        line: '#E1E7F0',
+                        positive: '#059669',
+                        negative: '#DC2626',
+                        warning: '#D97706'
+                    },
+                    fontFamily: {
+                        sans: ['"Segoe UI"', 'system-ui', '-apple-system', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['"Roboto Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="font-sans bg-ink-50 text-ink min-h-screen antialiased">
+
+    <header class="lg:hidden sticky top-0 z-30 bg-ink text-white shadow-sm pt-safe">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <img src="assets/images/coronacion-logo.png" 
+                alt="Coronacion Logo" 
+                class="mx-auto mb-4 w-16 h-16 object-contain">
+                <div>
+                    <p class="text-sm font-bold tracking-tight leading-tight">Coronacion</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Employee</p>
+                </div>
+            </div>
+            <button
+                id="hamburger-btn"
+                aria-label="Open navigation menu"
+                aria-expanded="false"
+                aria-controls="sidebar"
+                class="flex items-center justify-center w-11 h-11 -mr-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-frost transition-colors"
+            >
+                <svg id="icon-menu" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none"  viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+                <svg id="icon-close" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="drawer-overlay" class="lg:hidden fixed inset-0 bg-ink/70 z-40 opacity-0 pointer-events-none transition-opacity duration-[220ms]"></div>
+
+    <!-- @sidebar -->
+
+    <main class="lg:pl-72">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+
+            <div id="link-error" class="hidden mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"></div>
+
+            <div class="mb-6 lg:mb-8 page-enter flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div id="hero-avatar" class="w-14 h-14 rounded-full bg-coolant flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <span class="text-white font-bold text-lg">—</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 id="greeting" class="text-2xl sm:text-3xl font-bold tracking-tight text-ink truncate">Welcome back</h1>
+                        <p id="hero-sub" class="text-sm text-slate-500 mt-1">&nbsp;</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <a href="index.php?page=punch-employee-list" class="ui-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold min-h-[44px] focus:outline-none focus:ring-2 focus:ring-frost bg-coolant hover:bg-coolant-hover text-white shadow-sm">Clock In / Out</a>
+                    <button type="button" id="open-profile" class="ui-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold min-h-[44px] focus:outline-none focus:ring-2 focus:ring-frost bg-white border border-line text-ink hover:bg-ink-50">Edit profile</button>
+                </div>
+            </div>
+
+            <section aria-labelledby="insights-title" class="mb-6 lg:mb-8 page-enter">
+                <h2 id="insights-title" class="sr-only">Insights</h2>
+                <ul id="insights" class="grid grid-cols-1 md:grid-cols-2 gap-3"></ul>
+            </section>
+
+            <div class="stagger grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 lg:mb-8">
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 hover:shadow-md hover:-translate-y-px transition-all duration-150">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Days Worked</p>
+                    <p id="kpi-days" class="num text-3xl font-semibold text-ink leading-none">—</p>
+                    <p id="kpi-days-sub" class="text-xs text-slate-400 mt-2">&nbsp;</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 hover:shadow-md hover:-translate-y-px transition-all duration-150">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Late</p>
+                    <p id="kpi-late" class="num text-3xl font-semibold text-warning leading-none">—</p>
+                    <p id="kpi-late-sub" class="text-xs text-slate-400 mt-2">&nbsp;</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 hover:shadow-md hover:-translate-y-px transition-all duration-150">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Overtime</p>
+                    <p id="kpi-ot" class="num text-3xl font-semibold text-coolant leading-none">—</p>
+                    <p id="kpi-ot-sub" class="text-xs text-slate-400 mt-2">&nbsp;</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 hover:shadow-md hover:-translate-y-px transition-all duration-150">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Latest Pay</p>
+                    <p id="kpi-pay" class="num text-3xl font-semibold text-positive leading-none">—</p>
+                    <p id="kpi-pay-sub" class="text-xs text-slate-400 mt-2">&nbsp;</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm overflow-hidden page-enter">
+                        <div class="px-4 sm:px-5 py-4 border-b border-line">
+                            <h2 class="text-sm font-bold tracking-tight text-ink">My Payslips</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Approved and released pay. Tap a row for the breakdown.</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-line bg-ink-50">
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Pay period</th>
+                                        <th class="hidden sm:table-cell text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Gross</th>
+                                        <th class="hidden sm:table-cell text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Deductions</th>
+                                        <th class="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Net pay</th>
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap hidden md:table-cell">Approved by</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payslip-tbody" class="divide-y divide-line">
+                                    <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400">Loading…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm overflow-hidden page-enter">
+                        <div class="px-4 sm:px-5 py-4 border-b border-line flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-sm font-bold tracking-tight text-ink">Attendance</h2>
+                                <p id="att-sub" class="text-xs text-slate-500 mt-0.5">&nbsp;</p>
+                            </div>
+                            <input type="month" id="att-month" class="num px-3 py-2 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost min-h-[40px]">
+                        </div>
+                        <div class="px-4 sm:px-5 pt-3 flex gap-2" role="tablist" aria-label="Attendance view">
+                            <button type="button" role="tab" data-tab="late" aria-selected="true" class="att-tab px-3 py-1.5 rounded-lg text-xs font-semibold">Late</button>
+                            <button type="button" role="tab" data-tab="ot" aria-selected="false" class="att-tab px-3 py-1.5 rounded-lg text-xs font-semibold">Overtime</button>
+                            <button type="button" role="tab" data-tab="undertime" aria-selected="false" class="att-tab px-3 py-1.5 rounded-lg text-xs font-semibold">Left early</button>
+                            <button type="button" role="tab" data-tab="all" aria-selected="false" class="att-tab px-3 py-1.5 rounded-lg text-xs font-semibold">All days</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-line">
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">In</th>
+                                        <th class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Out</th>
+                                        <th id="att-metric-head" class="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Late</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="att-tbody" class="divide-y divide-line"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 page-enter">
+                        <h2 class="text-sm font-bold tracking-tight text-ink">Last 6 Months</h2>
+                        <p class="text-xs text-slate-500 mt-0.5 mb-4">Hover a bar for details.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <figure>
+                                <figcaption class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Late days per month</figcaption>
+                                <div id="chart-late" class="chart"></div>
+                            </figure>
+                            <figure>
+                                <figcaption class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Overtime hours per month</figcaption>
+                                <div id="chart-ot" class="chart"></div>
+                            </figure>
+                        </div>
+                        <details class="mt-4">
+                            <summary class="text-xs font-semibold text-coolant cursor-pointer">View as table</summary>
+                            <table class="w-full text-sm mt-2">
+                                <thead><tr class="border-b border-line">
+                                    <th class="text-left py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Month</th>
+                                    <th class="text-right py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Days worked</th>
+                                    <th class="text-right py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Late days</th>
+                                    <th class="text-right py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Late min</th>
+                                    <th class="text-right py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">OT hours</th>
+                                </tr></thead>
+                                <tbody id="trend-table" class="divide-y divide-line"></tbody>
+                            </table>
+                        </details>
+                    </section>
+                </div>
+
+                <div class="space-y-6">
+                    <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 page-enter">
+                        <h2 class="text-sm font-bold tracking-tight text-ink mb-4">My Pay</h2>
+                        <dl id="pay-list" class="space-y-3 text-sm"></dl>
+                    </section>
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 page-enter">
+                        <h2 class="text-sm font-bold tracking-tight text-ink">Salary Progression</h2>
+                        <p class="text-xs text-slate-500 mt-0.5 mb-4">Every rate change on record.</p>
+                        <ol id="rate-list" class="relative border-l border-line ml-1.5 space-y-4"></ol>
+                    </section>
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 page-enter">
+                        <h2 id="thirteenth-title" class="text-sm font-bold tracking-tight text-ink mb-3">13th Month Pay</h2>
+                        <div id="thirteenth-body" class="text-sm text-slate-500">—</div>
+                    </section>
+
+                    <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-5 page-enter">
+                        <h2 class="text-sm font-bold tracking-tight text-ink mb-4">My Profile</h2>
+                        <dl id="profile-list" class="space-y-3 text-sm"></dl>
+                        <p class="text-[11px] text-slate-400 mt-4">Name, job title and government IDs are managed by your employer. Ask the owner if something is wrong.</p>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="payslip-modal" class="hidden fixed inset-0 z-[60] bg-ink/70 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="payslip-title">
+        <div class="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="px-5 py-4 border-b border-line flex items-start justify-between gap-4">
+                <div>
+                    <h2 id="payslip-title" class="text-base font-bold text-ink">Payslip</h2>
+                    <p id="payslip-sub" class="text-xs text-slate-500 mt-0.5"></p>
+                </div>
+                <button type="button" data-close class="w-10 h-10 -mr-2 rounded-xl text-slate-400 hover:text-ink hover:bg-ink-50 flex items-center justify-center" aria-label="Close">✕</button>
+            </div>
+            <div id="payslip-body" class="px-5 py-4 text-sm"></div>
+        </div>
+    </div>
+
+    <div id="profile-modal" class="hidden fixed inset-0 z-[60] bg-ink/70 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+        <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+                <h2 id="profile-title" class="text-base font-bold text-ink">Edit Profile</h2>
+                <button type="button" data-close class="w-10 h-10 -mr-2 rounded-xl text-slate-400 hover:text-ink hover:bg-ink-50 flex items-center justify-center" aria-label="Close">✕</button>
+            </div>
+            <div class="px-5 py-5 space-y-6">
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">Profile photo</p>
+                    <div class="flex items-center gap-4">
+                        <div id="modal-avatar" class="w-20 h-20 rounded-full bg-coolant flex items-center justify-center overflow-hidden flex-shrink-0"></div>
+                        <div class="space-y-2 min-w-0">
+                            <label class="ui-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold min-h-[44px] focus:outline-none focus:ring-2 focus:ring-frost bg-coolant-tint text-coolant-hover cursor-pointer">
+                                Upload photo
+                                <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" class="sr-only">
+                            </label>
+                            <button type="button" id="photo-remove" class="hidden block text-xs font-medium text-negative hover:underline">Remove photo</button>
+                            <p class="text-xs text-slate-400">JPG or PNG, max 5MB.</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="password-form" class="space-y-3 pt-5 border-t border-line" autocomplete="on">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Change password</p>
+                    <input type="text" name="username" autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1">
+                    <div>
+                        <label for="current_password" class="block text-xs text-slate-600 mb-1">Current password</label>
+                        <input type="password" id="current_password" required autocomplete="current-password" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                    </div>
+                    <div>
+                        <label for="new_password" class="block text-xs text-slate-600 mb-1">New password</label>
+                        <input type="password" id="new_password" required minlength="8" autocomplete="new-password" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                    </div>
+                    <div>
+                        <label for="confirm_password" class="block text-xs text-slate-600 mb-1">Confirm new password</label>
+                        <input type="password" id="confirm_password" required minlength="8" autocomplete="new-password" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                    </div>
+                    <button type="submit" id="password-save" class="ui-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold min-h-[44px] focus:outline-none focus:ring-2 focus:ring-frost w-full bg-coolant hover:bg-coolant-hover text-white">Update password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="chart-tip" class="hidden fixed z-[70] pointer-events-none rounded-lg bg-ink text-white text-xs px-2.5 py-1.5 shadow-lg"></div>
+    <div id="toast-container" class="fixed bottom-4 inset-x-0 z-[80] flex flex-col items-center gap-2 px-4 pointer-events-none pb-safe" aria-live="polite"></div>
+
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/my-dashboard.js"></script>
+    <script src="assets/js/ui.js"></script>
+</body>
+</html>

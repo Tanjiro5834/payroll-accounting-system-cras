@@ -79,7 +79,7 @@ class PayrollService {
     }
 
     // computed → approved. The SQL WHERE on status makes a double click or a race a no-op.
-    public function approve(int $payrollId): bool {
+    public function approve(int $payrollId, ?int $approvedBy = null): bool {
         $record = $this->repository->findById($payrollId);
         if (!$record) {
             throw new DomainException("Payroll period not found: {$payrollId}");
@@ -87,7 +87,7 @@ class PayrollService {
         if ($record['status'] !== 'computed') {
             throw new DomainException("Only computed payrolls can be approved (current: {$record['status']}).");
         }
-        if (!$this->repository->updateStatus($payrollId, 'computed', 'approved')) {
+        if (!$this->repository->approve($payrollId, $approvedBy)) {
             throw new DomainException('Payroll was modified by another user. Reload and try again.');
         }
         $this->audit->record('PAYROLL_APPROVE', (int) $record['employee_id'], $this->auditRef($record));
