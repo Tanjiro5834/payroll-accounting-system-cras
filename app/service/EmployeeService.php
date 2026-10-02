@@ -22,9 +22,11 @@ class EmployeeService {
     private const UPLOAD_SUBDIR = 'uploads/employees/';
 
     private EmployeeRepository $repository;
+    private AuditService $audit;
 
-    public function __construct(?EmployeeRepository $repository = null) {
+    public function __construct(?EmployeeRepository $repository = null, ?AuditService $audit = null) {
         $this->repository = $repository ?? new EmployeeRepository();
+        $this->audit      = $audit      ?? new AuditService();
     }
 
     public function getAll(): array {
@@ -43,6 +45,10 @@ class EmployeeService {
         $clean = $this->validateAndNormalize($data, false);
         $id = $this->repository->create(Employee::fromArray($clean));
         (new StatutoryContributionService())->enroll($id, $clean['date_hired'] ?? date('Y-m-d'));
+
+        $this->audit->record('EMPLOYEE_CREATE', $id, array_intersect_key($clean, array_flip([
+            'full_name', 'role', 'pay_frequency', 'hourly_rate', 'monthly_rate', 'date_hired',
+        ])));
         return $id;
     }
 
@@ -55,22 +61,40 @@ class EmployeeService {
         }
 
         $this->repository->update(Employee::fromArray($merged));
-        return true; 
+
+        $changes = AuditService::diff($current, $merged, ['id', 'profile_photo_url']);
+        if ($changes) {
+            $this->audit->record('EMPLOYEE_UPDATE', $id, ['changes' => $changes]);
+        }
+        return true;
     }
 
     public function deactivate(int $id): bool {
-        $this->requireEmployee($id);
-        return $this->repository->deactivate($id);
+        $employee = $this->requireEmployee($id);
+        $ok = $this->repository->deactivate($id);
+        if ($ok) {
+            $this->audit->record('EMPLOYEE_DEACTIVATE', $id, ['full_name' => $employee->getFullName()]);
+        }
+        return $ok;
     }
 
     public function reactivate(int $id): bool {
-        $this->requireEmployee($id);
-        return $this->repository->reactivate($id);
+        $employee = $this->requireEmployee($id);
+        $ok = $this->repository->reactivate($id);
+        if ($ok) {
+            $this->audit->record('EMPLOYEE_REACTIVATE', $id, ['full_name' => $employee->getFullName()]);
+        }
+        return $ok;
     }
 
     public function delete(int $id): bool {
-        $this->requireEmployee($id);
-        return $this->repository->delete($id);
+        $employee = $this->requireEmployee($id);
+        $ok = $this->repository->delete($id);
+        if ($ok) {
+            // employee_id NULL: the row is gone, so a FK on audit_trail.employee_id would reject it
+            $this->audit->record('EMPLOYEE_DELETE', null, ['employee_id' => $id, 'full_name' => $employee->getFullName()]);
+        }
+        return $ok;
     }
 
     public function uploadProfilePhoto(int $employeeId, array $file): string {
@@ -95,6 +119,7 @@ class EmployeeService {
             FileHelper::delete($this->projectRoot() . '/' . $old);
         }
 
+        $this->audit->record('EMPLOYEE_PHOTO_UPDATE', $employeeId, ['photo' => $relative]);
         return $relative;
     }
 
@@ -108,7 +133,11 @@ class EmployeeService {
 
         FileHelper::delete($this->projectRoot() . '/' . $current);
 
-        return $this->replaceProfilePhoto($employee, null);
+        $ok = $this->replaceProfilePhoto($employee, null);
+        if ($ok) {
+            $this->audit->record('EMPLOYEE_PHOTO_DELETE', $employeeId, ['photo' => $current]);
+        }
+        return $ok;
     }
 
     public function search(string $query): array {

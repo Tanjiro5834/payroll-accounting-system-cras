@@ -23,6 +23,7 @@ class PayrollDeductionService {
     private DeductionCarryoverRepository $carryovers;
 
     private StatutoryContributionService $statutory;
+    private AuditService $audit;
 
     public function __construct(
         ?PayrollDeductionRepository $repository = null,
@@ -30,7 +31,8 @@ class PayrollDeductionService {
         ?EmployeeDeductionRepository $employeeDeductionRepository = null,
         ?DeductionRepository $deductionRepository = null,
         ?StatutoryContributionService $statutory = null,
-        ?DeductionCarryoverRepository $carryovers = null
+        ?DeductionCarryoverRepository $carryovers = null,
+        ?AuditService $audit = null
     ) {
         $this->repository = $repository ?? new PayrollDeductionRepository();
         $this->payrollRepository = $payrollRepository ?? new PayrollRepository();
@@ -38,6 +40,7 @@ class PayrollDeductionService {
         $this->deductionRepository = $deductionRepository ?? new DeductionRepository();
         $this->statutory = $statutory ?? new StatutoryContributionService();
         $this->carryovers = $carryovers ?? new DeductionCarryoverRepository();
+        $this->audit = $audit ?? new AuditService();
     }
 
     public function getByPayrollPeriod(int $payrollPeriodId): array {
@@ -54,11 +57,17 @@ class PayrollDeductionService {
         $this->assertEditable($payroll);
         $this->requireDeduction($deductionId);
 
-        return $this->repository->create(
-            $payrollPeriodId,
-            $deductionId,
-            $this->money($amount, 'amount')
-        );
+        $amount = $this->money($amount, 'amount');
+        $id = $this->repository->create($payrollPeriodId, $deductionId, $amount);
+
+        $row = $this->repository->findById($id);
+        $this->audit->record('DEDUCTION_ADD', (int) $payroll['employee_id'], [
+            'payroll_id'           => $payrollPeriodId,
+            'payroll_deduction_id' => $id,
+            'deduction'            => $row['deduction_code'] ?? $deductionId,
+            'amount'               => $amount,
+        ]);
+        return $id;
     }
 
     public function update(int $id, string $amount): bool {
@@ -66,7 +75,14 @@ class PayrollDeductionService {
         $payroll  = $this->requirePayrollPeriod((int) $existing['payroll_period_id']);
         $this->assertEditable($payroll);
 
-        return $this->repository->update($id, $this->money($amount, 'amount'));
+        $amount = $this->money($amount, 'amount');
+        $ok = $this->repository->update($id, $amount);
+        if ($ok) {
+            $this->audit->record('DEDUCTION_UPDATE', (int) $payroll['employee_id'], $this->auditRef($existing) + [
+                'amount' => ['from' => $existing['amount'], 'to' => $amount],
+            ]);
+        }
+        return $ok;
     }
 
     public function delete(int $id): bool {
@@ -74,7 +90,21 @@ class PayrollDeductionService {
         $payroll  = $this->requirePayrollPeriod((int) $existing['payroll_period_id']);
         $this->assertEditable($payroll);
 
-        return $this->repository->delete($id);
+        $ok = $this->repository->delete($id);
+        if ($ok) {
+            $this->audit->record('DEDUCTION_DELETE', (int) $payroll['employee_id'], $this->auditRef($existing) + [
+                'amount' => $existing['amount'],
+            ]);
+        }
+        return $ok;
+    }
+
+    private function auditRef(array $payrollDeduction): array {
+        return [
+            'payroll_id'           => (int) $payrollDeduction['payroll_period_id'],
+            'payroll_deduction_id' => (int) $payrollDeduction['id'],
+            'deduction'            => $payrollDeduction['deduction_code'],
+        ];
     }
 
     public function bulkInsert(int $payrollPeriodId, array $rows): int {
@@ -83,14 +113,18 @@ class PayrollDeductionService {
 
         $clean = $this->validateBulkRows($rows);
 
-        return $this->repository->bulkInsert($payrollPeriodId, $clean);
+        $count = $this->repository->bulkInsert($payrollPeriodId, $clean);
+        $this->audit->record('DEDUCTION_BULK_ADD', (int) $payroll['employee_id'], ['payroll_id' => $payrollPeriodId, 'rows' => $count]);
+        return $count;
     }
 
     public function deleteByPayrollPeriod(int $payrollPeriodId): int {
         $payroll = $this->requirePayrollPeriod($payrollPeriodId);
         $this->assertEditable($payroll);
 
-        return $this->repository->deleteByPayrollPeriod($payrollPeriodId);
+        $count = $this->repository->deleteByPayrollPeriod($payrollPeriodId);
+        $this->audit->record('DEDUCTION_CLEAR', (int) $payroll['employee_id'], ['payroll_id' => $payrollPeriodId, 'rows' => $count]);
+        return $count;
     }
 
     public function sumByPayrollPeriod(int $payrollPeriodId): string {
@@ -104,7 +138,12 @@ class PayrollDeductionService {
 
         $rows = $this->validateBulkRows($deductions);
 
-        return $this->repository->replaceForPayrollPeriod($payrollPeriodId, $rows);
+        $count = $this->repository->replaceForPayrollPeriod($payrollPeriodId, $rows);
+        $this->audit->record('DEDUCTION_REPLACE', (int) $payroll['employee_id'], [
+            'payroll_id' => $payrollPeriodId,
+            'rows'       => array_map(fn($r) => ['deduction_id' => $r['deduction_id'], 'amount' => $r['amount']], $rows),
+        ]);
+        return $count;
     }
 
     public function computeFromCatalog(

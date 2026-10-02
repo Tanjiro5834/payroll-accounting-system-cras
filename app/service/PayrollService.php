@@ -27,19 +27,22 @@ class PayrollService {
     private DailySummaryRepository $dailySummary;
     private PayrollDeductionService $deductions;
     private TimesheetService $timesheet;
+    private AuditService $audit;
 
     public function __construct(
         ?PayrollRepository $repository = null,
         ?EmployeeRepository $employees = null,
         ?DailySummaryRepository $dailySummary = null,
         ?PayrollDeductionService $deductions = null,
-        ?TimesheetService $timesheet = null
+        ?TimesheetService $timesheet = null,
+        ?AuditService $audit = null
     ) {
         $this->repository   = $repository   ?? new PayrollRepository();
         $this->employees    = $employees    ?? new EmployeeRepository();
         $this->dailySummary = $dailySummary ?? new DailySummaryRepository();
         $this->deductions   = $deductions   ?? new PayrollDeductionService();
         $this->timesheet    = $timesheet    ?? new TimesheetService();
+        $this->audit        = $audit        ?? new AuditService();
     }
 
     // Compute + save payroll for a period, then return the saved rows (with employee names).
@@ -57,6 +60,13 @@ class PayrollService {
                 $this->saveComputed($this->computeForPeriod((int) $employee['id'], $start, $end, $computedBy));
             }
         });
+
+        $this->audit->record('PAYROLL_COMPUTE', $employeeId ?: null, [
+            'period_start'  => $start,
+            'period_end'    => $end,
+            'pay_frequency' => $frequency ?: 'all',
+            'employees'     => count($employees),
+        ]);
 
         return $this->getPeriod($start, $end, $employeeId, $frequency);
     }
@@ -80,7 +90,16 @@ class PayrollService {
         if (!$this->repository->updateStatus($payrollId, 'computed', 'approved')) {
             throw new DomainException('Payroll was modified by another user. Reload and try again.');
         }
+        $this->audit->record('PAYROLL_APPROVE', (int) $record['employee_id'], $this->auditRef($record));
         return true;
+    }
+
+    private function auditRef(array $record): array {
+        return [
+            'payroll_id' => (int) $record['id'],
+            'period'     => $record['period_start'] . ' to ' . $record['period_end'],
+            'net_pay'    => $record['net_pay'],
+        ];
     }
 
     private function saveComputed(array $row): void {
@@ -268,7 +287,11 @@ class PayrollService {
             );
         }
 
-        return $this->repository->markAsPaid($payrollId, $paidAt);
+        $ok = $this->repository->markAsPaid($payrollId, $paidAt);
+        if ($ok) {
+            $this->audit->record('PAYROLL_PAID', (int) $record['employee_id'], $this->auditRef($record) + ['paid_at' => $paidAt]);
+        }
+        return $ok;
     }
 
     public function updateStatus(int $payrollId, string $from, string $to, int $actorId): bool {

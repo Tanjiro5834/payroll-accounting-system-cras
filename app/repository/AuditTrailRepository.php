@@ -8,16 +8,23 @@ class AuditTrailRepository extends BaseRepository {
     private const DEFAULT_LIMIT = 500;
     private const MAX_LIMIT = 1000;
 
-    public function log(?int $employeeId, string $actionType, mixed $details = null, ?string $ip = null): bool {
+    private const SELECT = "SELECT at.id, at.employee_id, e.full_name, at.user_id, u.username AS actor_username,
+                                   at.action_type, at.action_details, at.ip_address, at.performed_at
+                            FROM audit_trail at
+                            LEFT JOIN employees e ON e.id = at.employee_id
+                            LEFT JOIN users u     ON u.id = at.user_id";
+
+    public function log(?int $employeeId, string $actionType, mixed $details = null, ?string $ip = null, ?int $userId = null): bool {
         $stmt = $this->db->prepare(
-            "INSERT INTO audit_trail (employee_id, action_type, action_details, ip_address, performed_at)
-             VALUES (?, ?, ?, ?, NOW())"
+            "INSERT INTO audit_trail (employee_id, user_id, action_type, action_details, ip_address, performed_at)
+             VALUES (?, ?, ?, ?, ?, NOW())"
         );
 
         return $stmt->execute([
             $employeeId,
+            $userId,
             $actionType,
-            is_array($details) ? json_encode($details) : $details,
+            is_array($details) ? json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : $details,
             $ip,
         ]);
     }
@@ -26,11 +33,8 @@ class AuditTrailRepository extends BaseRepository {
         $limit = $this->clampLimit($limit);
         $endExclusive = $this->nextDay($end);
 
-        $sql = "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
-                       at.ip_address, at.performed_at
-                FROM audit_trail at
-                LEFT JOIN employees e ON e.id = at.employee_id
-                WHERE at.performed_at >= :start
+        $sql = self::SELECT . "
+                 WHERE at.performed_at >= :start
                   AND at.performed_at <  :end";
         $params = [':start' => $start, ':end' => $endExclusive];
 
@@ -56,11 +60,8 @@ class AuditTrailRepository extends BaseRepository {
         $endExclusive = $this->nextDay($end);
 
         $stmt = $this->db->prepare(
-            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
-                    at.ip_address, at.performed_at
-             FROM audit_trail at
-             LEFT JOIN employees e ON e.id = at.employee_id
-             WHERE at.action_type = :action_type
+            self::SELECT . "
+                 WHERE at.action_type = :action_type
                AND at.performed_at >= :start
                AND at.performed_at <  :end
              ORDER BY at.performed_at DESC, at.id DESC
@@ -79,11 +80,8 @@ class AuditTrailRepository extends BaseRepository {
         $limit = $this->clampLimit($limit);
 
         $stmt = $this->db->prepare(
-            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
-                    at.ip_address, at.performed_at
-             FROM audit_trail at
-             LEFT JOIN employees e ON e.id = at.employee_id
-             WHERE at.employee_id = :employee_id
+            self::SELECT . "
+                 WHERE at.employee_id = :employee_id
              ORDER BY at.performed_at DESC, at.id DESC
              LIMIT :lim"
         );
@@ -134,11 +132,8 @@ class AuditTrailRepository extends BaseRepository {
 
     public function findById(int $id): ?array {
         $stmt = $this->db->prepare(
-            "SELECT at.id, at.employee_id, e.full_name, at.action_type, at.action_details,
-                    at.ip_address, at.performed_at
-             FROM audit_trail at
-             LEFT JOIN employees e ON e.id = at.employee_id
-             WHERE at.id = ? LIMIT 1"
+            self::SELECT . "
+                 WHERE at.id = ? LIMIT 1"
         );
         $stmt->execute([$id]);
 

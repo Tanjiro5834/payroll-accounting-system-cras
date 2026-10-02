@@ -1,13 +1,17 @@
 <?php
 namespace App\Service;
 
+use App\Middleware\AuthMiddleware;
 use App\Repository\AuditTrailRepository;
-use DateTimeImmutable;
-use DateTimeZone;
 use InvalidArgumentException;
+use Throwable;
 
+// Write side of the audit trail. Reading/filtering lives in TimeAuditService.
+//   employee_id = the employee the action was ABOUT
+//   user_id     = the logged-in user who DID it (NULL for kiosk/system)
 class AuditService {
-    private const TIMEZONE = 'Asia/Manila';
+    // Government IDs: record that they changed, never the values.
+    private const REDACTED_FIELDS = ['sss_number', 'philhealth_number', 'pagibig_number', 'tin_number'];
 
     private AuditTrailRepository $repository;
 
@@ -15,85 +19,60 @@ class AuditService {
         $this->repository = $repository ?? new AuditTrailRepository();
     }
 
-    public function log(?int $employeeId, string $actionType, mixed $details = null): void {
-        $this->repository->log($employeeId, $this->normalizeAction($actionType), $details, $this->clientIp());
-    }
-
-    public function logPunch(int $employeeId, string $punchType, int $punchId, array $meta): void {
-        $this->log($employeeId, 'PUNCH', [
-            'punch_type' => $punchType,
-            'punch_id'   => $punchId,
-            'meta'       => $meta,
-        ]);
-    }
-
-    public function logLogin(int $employeeId, string $username): void {
-        $this->log($employeeId, 'LOGIN', ['username' => $username]);
-    }
-
-    public function logLogout(int $employeeId): void {
-        $this->log($employeeId, 'LOGOUT');
-    }
-
-    public function logPayrollView(int $employeeId, string $period): void {
-        $this->log($employeeId, 'PAYROLL_VIEW', ['period' => $period]);
-    }
-
-    public function logPayrollCompute(int $employeeId, string $period, array $result): void {
-        $this->log($employeeId, 'PAYROLL_COMPUTE', [
-            'period' => $period,
-            'result' => $result,
-        ]);
-    }
-
-    public function logEmployeeEdit(int $actorId, int $targetId, array $changes): void {
-        $this->log($actorId, 'EMPLOYEE_EDIT', [
-            'target_employee_id' => $targetId,
-            'changes'            => $changes,
-        ]);
-    }
-
-    public function getAuditTrail(string $start, string $end, ?int $employeeId = null): array {
-        $this->assertValidDate($start, 'start');
-        $this->assertValidDate($end, 'end');
-        $this->assertDateOrder($start, $end);
-
-        return $this->repository->findByDateRange($start, $end, $employeeId);
-    }
-
-    public function getAuditTrailByAction(string $actionType, string $start, string $end): array {
-        $this->assertValidDate($start, 'start');
-        $this->assertValidDate($end, 'end');
-        $this->assertDateOrder($start, $end);
-
-        return $this->repository->findByActionType($this->normalizeAction($actionType), $start, $end);
-    }
-
-    private function normalizeAction(string $actionType): string {
-        $actionType = trim($actionType);
-        if ($actionType === '') {
-            throw new InvalidArgumentException('Action type is required.');
-        }
-        if (mb_strlen($actionType) > 50) {
-            throw new InvalidArgumentException('Action type must be 50 characters or fewer.');
-        }
-        return $actionType;
-    }
-
-    private function clientIp(): ?string {
-        return $_SERVER['REMOTE_ADDR'] ?? null;
-    }
-
-    private function assertValidDate(string $date, string $field): void {
-        $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone(self::TIMEZONE));
-        if (!$dt || $dt->format('Y-m-d') !== $date) {
-            throw new InvalidArgumentException("Invalid date for {$field}: {$date}");
+    // Best-effort: a failed audit write goes to the PHP error log and never breaks the action that triggered it.
+    public function record(string $action, ?int $employeeId, array $details = []): void {
+        try {
+            $this->repository->log(
+                $employeeId,
+                $this->normalizeAction($action),
+                $details ?: null,
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $this->actorId()
+            );
+        } catch (Throwable $e) {
+            error_log("[audit] {$action} failed: " . $e->getMessage());
         }
     }
 
-    private function assertDateOrder(string $start, string $end): void {
-        if ($start > $end) {
-            throw new InvalidArgumentException('Start date must be on or before end date.');
+    // Field-level changes: ['field' => ['from' => x, 'to' => y]]. Only fields present in both snapshots are compared.
+    public static function diff(array $before, array $after, array $ignore = []): array {
+        $changes = [];
+        foreach ($after as $field => $to) {
+            if (in_array($field, $ignore, true) || !array_key_exists($field, $before)) {
+                continue;
+            }
+            $from = $before[$field];
+            if (self::same($from, $to)) {
+                continue;
+            }
+            $changes[$field] = in_array($field, self::REDACTED_FIELDS, true)
+                ? ['changed' => true]
+                : ['from' => $from, 'to' => $to];
         }
+        return $changes;
+    }
+
+    // '500' == '500.00', true == 1, null == ''
+    private static function same(mixed $a, mixed $b): bool {
+        if (is_numeric($a) && is_numeric($b)) {
+            return bccomp((string) $a, (string) $b, 4) === 0;
+        }
+        return (string) $a === (string) $b;
+    }
+
+    private function actorId(): ?int {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return null; // CLI / scheduled jobs
+        }
+        $user = AuthMiddleware::user();
+        return isset($user['id']) ? (int) $user['id'] : null;
+    }
+
+    private function normalizeAction(string $action): string {
+        $action = strtoupper(trim($action));
+        if ($action === '' || strlen($action) > 50) {
+            throw new InvalidArgumentException('Audit action must be 1-50 characters.');
+        }
+        return $action;
     }
 }

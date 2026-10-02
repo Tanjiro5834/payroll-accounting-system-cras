@@ -22,17 +22,20 @@ class ThirteenthMonthService {
     private EmployeeRepository $empRepository;
     private PayrollRepository $payrollRepository;
     private DailySummaryRepository $dailySummaryRepository;
+    private AuditService $audit;
 
     public function __construct(
         ?ThirteenthMonthRepository $repository = null,
         ?EmployeeRepository $empRepository = null,
         ?PayrollRepository $payrollRepository = null,
-        ?DailySummaryRepository $dailySummaryRepository = null
+        ?DailySummaryRepository $dailySummaryRepository = null,
+        ?AuditService $audit = null
     ) {
         $this->repository             = $repository             ?? new ThirteenthMonthRepository();
         $this->empRepository          = $empRepository          ?? new EmployeeRepository();
         $this->payrollRepository      = $payrollRepository      ?? new PayrollRepository();
         $this->dailySummaryRepository = $dailySummaryRepository ?? new DailySummaryRepository();
+        $this->audit                  = $audit                  ?? new AuditService();
     }
 
     public function getAll(): array {
@@ -74,6 +77,10 @@ class ThirteenthMonthService {
         $row     = $this->buildRow($employeeId, $year, $summary[$employeeId] ?? null, $userId);
 
         $this->repository->bulkUpsert([$row]);
+        $this->audit->record('THIRTEENTH_COMPUTE', $employeeId, [
+            'year'                 => $year,
+            'thirteenth_month_pay' => $row['thirteenth_month_pay'],
+        ]);
         return $row;
     }
 
@@ -97,7 +104,9 @@ class ThirteenthMonthService {
             return 0;
         }
 
-        return $this->repository->transaction(fn() => $this->repository->bulkUpsert($rows));
+        $count = $this->repository->transaction(fn() => $this->repository->bulkUpsert($rows));
+        $this->audit->record('THIRTEENTH_COMPUTE', null, ['year' => $year, 'employees' => count($rows)]);
+        return $count;
     }
 
     public function computeBasicSalary(int $employeeId, int $year): string {
@@ -177,6 +186,7 @@ class ThirteenthMonthService {
         if (!$this->repository->approve($id, $approvedBy)) {
             throw new DomainException('Record was modified by another user. Reload and try again.');
         }
+        $this->audit->record('THIRTEENTH_APPROVE', (int) $record['employee_id'], $this->auditRef($record));
         return true;
     }
 
@@ -192,6 +202,7 @@ class ThirteenthMonthService {
         if (!$this->repository->markAsPaid($id, $paidAt)) {
             throw new DomainException('Record was modified by another user. Reload and try again.');
         }
+        $this->audit->record('THIRTEENTH_PAID', (int) $record['employee_id'], $this->auditRef($record) + ['paid_at' => $paidAt]);
         return true;
     }
 
@@ -200,7 +211,19 @@ class ThirteenthMonthService {
         if ($record['status'] !== 'draft') {
             throw new DomainException("Only draft records can be deleted (current: {$record['status']}).");
         }
-        return $this->repository->deleteDraft($id);
+        $ok = $this->repository->deleteDraft($id);
+        if ($ok) {
+            $this->audit->record('THIRTEENTH_DELETE', (int) $record['employee_id'], $this->auditRef($record));
+        }
+        return $ok;
+    }
+
+    private function auditRef(array $record): array {
+        return [
+            'record_id'            => (int) $record['id'],
+            'year'                 => (int) $record['year'],
+            'thirteenth_month_pay' => $record['thirteenth_month_pay'],
+        ];
     }
 
     public function generateReport(int $year): array {
