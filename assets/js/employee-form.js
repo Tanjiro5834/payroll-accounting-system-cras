@@ -64,6 +64,7 @@
   const editId = getParam("id");
   let hasStoredPhoto = false;
   let removeStoredPhoto = false;
+  let loadedFrequency = null;
 
   function setAvatarPhoto(url) {
     avatarPreview.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Employee photo" class="w-full h-full object-cover">';
@@ -83,6 +84,7 @@
     document.getElementById("pagibig").value = emp.pagibig_number || "";
     document.getElementById("tin").value = emp.tin_number || "";
     document.getElementById("pay_frequency").value = emp.pay_frequency;
+    loadedFrequency = emp.pay_frequency;
     document.getElementById("hourly_rate").value = emp.hourly_rate || "";
     document.getElementById("monthly_rate").value = emp.monthly_rate || "";
     document.getElementById("active").checked = Boolean(emp.is_active);
@@ -267,6 +269,18 @@
     };
   }
 
+  // A rate field hidden by the pay frequency used to be sent as "", which cleared the stored value
+  // on every save (e.g. a kinsenas employee's monthly salary). Only clear it when the frequency changed.
+  function savePayload() {
+    const data = payload();
+    const freqChanged = loadedFrequency !== null && loadedFrequency !== data.pay_frequency;
+    if (!freqChanged) {
+      if (hourlyWrap.classList.contains("hidden")) delete data.hourly_rate;
+      if (monthlyWrap.classList.contains("hidden")) delete data.monthly_rate;
+    }
+    return data;
+  }
+
   async function savePhoto(id) {
     const file = photoInput.files && photoInput.files[0];
     if (file) {
@@ -284,8 +298,8 @@
 
     try {
       const saved = editId
-        ? await api.post("employees", "update", { id: editId, body: payload() })
-        : await api.post("employees", "store", { body: payload() });
+        ? await api.post("employees", "update", { id: editId, body: savePayload() })
+        : await api.post("employees", "store", { body: savePayload() });
 
       try {
         await savePhoto(saved.id);

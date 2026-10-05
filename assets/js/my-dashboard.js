@@ -126,6 +126,8 @@
     $("kpi-days-sub").textContent = m.label;
 
     $("kpi-late").textContent = plural(m.late_days, "day");
+    $("kpi-late").classList.toggle("text-warning", m.late_days > 0);
+    $("kpi-late").classList.toggle("text-ink", m.late_days === 0);
     $("kpi-late-sub").textContent = (m.late_days ? mins(m.late_minutes) + " total" : "On time so far") + " · last month: " + pm.late_days;
 
     $("kpi-ot").textContent = hrs(m.ot_hours);
@@ -395,14 +397,16 @@
       $("rate-list").innerHTML = '<li class="ml-4 text-sm text-slate-400">No rate on record.</li>';
       return;
     }
-    const value = (r) => (r.monthly_rate ? peso(r.monthly_rate) + "/mo" : peso(r.hourly_rate) + "/hr");
-    const amount = (r) => Number(r.monthly_rate || r.hourly_rate || 0);
+    // Payroll pays the hourly rate when one is set, so that is the rate shown and compared.
+    const hourly = (r) => Number(r.hourly_rate) > 0;
+    const value = (r) => (hourly(r) ? peso(r.hourly_rate) + "/hr" : peso(r.monthly_rate) + "/mo");
+    const amount = (r) => Number(hourly(r) ? r.hourly_rate : r.monthly_rate) || 0;
 
     $("rate-list").innerHTML = rows
       .map(function (r, i) {
         const prev = rows[i - 1];
         let change = "";
-        if (prev && amount(prev) > 0 && (!!prev.monthly_rate === !!r.monthly_rate)) {
+        if (prev && amount(prev) > 0 && hourly(prev) === hourly(r)) {
           const pct = ((amount(r) - amount(prev)) / amount(prev)) * 100;
           if (pct !== 0) {
             change = '<span class="ml-2 text-xs font-semibold ' + (pct > 0 ? "text-positive" : "text-negative") + '">' +
