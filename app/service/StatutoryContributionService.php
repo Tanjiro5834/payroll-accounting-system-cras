@@ -21,7 +21,7 @@ class StatutoryContributionService {
     public const CODES      = [self::SSS, self::PHILHEALTH, self::PAGIBIG];
 
     private const TIMEZONE        = 'Asia/Manila';
-    private const HOURS_PER_MONTH = '173.33';   // same as PayrollService
+    private const HOURS_PER_MONTH = '208.67';   // same as PayrollService
 
     private const SSS_EE_RATE  = '0.05';        // EE 5% of MSC
     private const SSS_MSC_MIN  = '5000';
