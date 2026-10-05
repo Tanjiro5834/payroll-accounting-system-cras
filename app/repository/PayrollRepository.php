@@ -7,6 +7,7 @@ class PayrollRepository extends BaseRepository {
     private const COLUMNS = 'pp.id, pp.employee_id, pp.period_start, pp.period_end, pp.pay_frequency,
                              pp.total_regular_hours, pp.total_overtime_hours, pp.total_night_diff_hours,
                              pp.total_late_minutes, pp.total_undertime_minutes, pp.hourly_rate,
+                             pp.premium_pay, pp.premium_details,
                              pp.gross_pay, pp.total_deductions, pp.net_pay, pp.status,
                              pp.computed_by, pp.computed_at, pp.paid_at, pp.notes';
 
@@ -18,7 +19,7 @@ class PayrollRepository extends BaseRepository {
         'employee_id', 'period_start', 'period_end', 'pay_frequency',
         'total_regular_hours', 'total_overtime_hours', 'total_night_diff_hours',
         'total_late_minutes', 'total_undertime_minutes', 'hourly_rate',
-        'gross_pay', 'total_deductions', 'net_pay',
+        'premium_pay', 'premium_details', 'gross_pay', 'total_deductions', 'net_pay',
         'status', 'computed_by', 'computed_at', 'paid_at', 'notes',
     ];
 
@@ -352,6 +353,7 @@ class PayrollRepository extends BaseRepository {
             'total_late_minutes',
             'total_undertime_minutes',
             'hourly_rate',
+            'premium_pay',
             'gross_pay',
             'total_deductions',
             'net_pay'        => '0.00',

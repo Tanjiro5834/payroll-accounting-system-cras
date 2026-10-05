@@ -39,4 +39,14 @@ class Holiday
     public function getName() { return $this->name; }
     public function getType() { return $this->type; }
     public function getCreatedAt() { return $this->created_at; }
+
+    public function toArray(): array {
+        return [
+            'id'           => $this->id !== null ? (int) $this->id : null,
+            'holiday_date' => $this->holiday_date,
+            'name'         => $this->name,
+            'type'         => $this->type,
+            'created_at'   => $this->created_at,
+        ];
+    }
 }

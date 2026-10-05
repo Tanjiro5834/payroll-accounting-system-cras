@@ -175,6 +175,20 @@
     );
   }
 
+  function premiumLines(r) {
+    try { return JSON.parse(r.premium_details || "[]") || []; } catch (e) { return []; }
+  }
+
+  function premiumCell(r) {
+    const amount = Number(r.premium_pay) || 0;
+    if (!amount) return '<td class="px-4 py-3 text-right font-mono text-xs text-slate-400 whitespace-nowrap">' + peso(0) + "</td>";
+    const tip = premiumLines(r).map(function (l) {
+      return l.date + "  " + l.label + " (" + l.rate + ")  +" + Number(l.amount).toFixed(2);
+    }).join("\n");
+    return '<td class="px-4 py-3 text-right font-mono text-xs text-sky-800 whitespace-nowrap cursor-help underline decoration-dotted" title="' +
+      escapeHtml(tip) + '">+' + peso(amount) + "</td>";
+  }
+
   function payrollRow(r) {
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition-colors";
@@ -189,6 +203,7 @@
       minutesCell(r.total_late_minutes) +
       minutesCell(r.total_undertime_minutes) +
       '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + peso(r.hourly_rate) + "</td>" +
+      premiumCell(r) +
       '<td class="px-4 py-3 text-right font-mono text-xs text-slate-900 whitespace-nowrap">' + peso(r.gross_pay) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-xs text-red-700 whitespace-nowrap">-' + peso(r.total_deductions) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(r.net_pay) + "</td>" +
@@ -207,6 +222,7 @@
     tr.innerHTML =
       '<td class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700" colspan="7">Total (' +
         rows.length + " employee" + (rows.length === 1 ? "" : "s") + ")</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-sky-800 whitespace-nowrap">+' + peso(sum("premium_pay")) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' + peso(sum("gross_pay")) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-red-700 whitespace-nowrap">-' + peso(sum("total_deductions")) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(sum("net_pay")) + "</td>" +

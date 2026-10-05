@@ -4,7 +4,9 @@ namespace App\Service;
 use App\Entity\PayrollPeriod;
 use App\Repository\DailySummaryRepository;
 use App\Repository\EmployeeRepository;
+use App\Repository\HolidayRepository;
 use App\Repository\PayrollRepository;
+use App\Repository\SundayDutyRepository;
 use DateTimeImmutable;
 use DateTimeZone;
 use DomainException;
@@ -21,6 +23,18 @@ class PayrollService {
     // not 110% of the rate, which would pay those hours twice.
     private const NIGHT_MULTIPLIER = '0.10';
     private const REST_MULTIPLIER  = '1.30';
+    // OT on a Sunday/holiday is 130% of that day's rate (DOLE), not the ordinary-day 125%.
+    private const PREMIUM_DAY_OT_MULTIPLIER = '1.30';
+    // Day rate multipliers (DOLE). Sunday duty = 130%, special non-working worked = 130%, regular holiday worked = 200%.
+    private const DAY_MULTIPLIERS = [
+        'ordinary'            => '1.00',
+        'sunday'              => '1.30',
+        'special_non_working' => '1.30',
+        'special_sunday'      => '1.50',
+        'regular'             => '2.00',
+        'regular_sunday'      => '2.60',
+    ];
+    public const SETTING_PAY_UNWORKED_REGULAR = 'pay_unworked_regular_holiday';
 
     private PayrollRepository $repository;
     private EmployeeRepository $employees;
@@ -28,6 +42,9 @@ class PayrollService {
     private PayrollDeductionService $deductions;
     private TimesheetService $timesheet;
     private AuditService $audit;
+    private HolidayRepository $holidays;
+    private SundayDutyRepository $sundayDuty;
+    private SystemSettingService $settings;
 
     public function __construct(
         ?PayrollRepository $repository = null,
@@ -35,7 +52,10 @@ class PayrollService {
         ?DailySummaryRepository $dailySummary = null,
         ?PayrollDeductionService $deductions = null,
         ?TimesheetService $timesheet = null,
-        ?AuditService $audit = null
+        ?AuditService $audit = null,
+        ?HolidayRepository $holidays = null,
+        ?SundayDutyRepository $sundayDuty = null,
+        ?SystemSettingService $settings = null
     ) {
         $this->repository   = $repository   ?? new PayrollRepository();
         $this->employees    = $employees    ?? new EmployeeRepository();
@@ -43,6 +63,9 @@ class PayrollService {
         $this->deductions   = $deductions   ?? new PayrollDeductionService();
         $this->timesheet    = $timesheet    ?? new TimesheetService();
         $this->audit        = $audit        ?? new AuditService();
+        $this->holidays     = $holidays     ?? new HolidayRepository();
+        $this->sundayDuty   = $sundayDuty   ?? new SundayDutyRepository();
+        $this->settings     = $settings     ?? new SystemSettingService();
     }
 
     // Compute + save payroll for a period, then return the saved rows (with employee names).
@@ -151,7 +174,12 @@ class PayrollService {
             'total_undertime_minutes' => (int) $summary['total_undertime'],
         ];
 
-        $gross = $this->computeGrossPay($totals, $employee, $hourly);
+        $base    = $this->computeGrossPay($totals, $employee, $hourly);
+        $premium = $this->computePremiums(
+            $employeeId, $employee, $hourly, $start, $end,
+            $this->dailySummary->findByPeriod($employeeId, $start, $end)
+        );
+        $gross = bcadd($base, $premium['amount'], 2);
         $computed = $this->deductions->computeFromCatalog($employeeId, $gross, $start, $end, $employee);
 
         $deductTotal = '0.00';
@@ -172,6 +200,8 @@ class PayrollService {
             'total_late_minutes'      => $totals['total_late_minutes'],
             'total_undertime_minutes' => $totals['total_undertime_minutes'],
             'hourly_rate'             => $hourly,
+            'premium_pay'             => $premium['amount'],
+            'premium_details'         => $premium['lines'] ? json_encode($premium['lines']) : null,
             'gross_pay'               => $gross,
             'total_deductions'        => $deductTotal,
             'net_pay'                 => $net,
@@ -210,6 +240,113 @@ class PayrollService {
         $total = bcadd($total, $rest, 4);
 
         return $this->roundHalfUp($total);
+    }
+
+    /**
+     * Extra pay for Sundays and holidays, added on top of computeGrossPay() (which pays every hour at the ordinary rate).
+     * Per worked day: extra = (hours at that day's rate) − (same hours at the ordinary rate), where at multiplier m:
+     *   regular hours × rate × m  +  OT × rate × m × 1.30  +  night diff × rate × m × 0.10
+     * Unworked regular holidays on a work day add one day at 100% only when the pay_unworked_regular_holiday setting is 1.
+     *
+     * @param array<int, array> $days daily_summary rows for the period
+     * @return array{amount: string, lines: array<int, array{date: string, label: string, rate: string, hours: string, amount: string}>}
+     */
+    public function computePremiums(int $employeeId, array $employee, string $hourly, string $start, string $end, array $days): array {
+        $holidays = [];
+        foreach ($this->holidays->findByDateRange($start, $end) as $h) {
+            $holidays[$h->getHolidayDate()] = $h;
+        }
+        $rostered = $this->sundayDuty->assignedDates($employeeId, $start, $end);
+
+        $lines  = [];
+        $worked = [];
+
+        foreach ($days as $d) {
+            $reg   = bcadd((string) $d['regular_hours'], '0', 2);
+            $ot    = bcadd((string) $d['overtime_hours'], '0', 2);
+            $night = bcadd((string) $d['night_diff_hours'], '0', 2);
+            if (bccomp($reg, '0', 2) <= 0 && bccomp($ot, '0', 2) <= 0) {
+                continue;
+            }
+
+            $date    = (string) $d['work_date'];
+            $holiday = $holidays[$date] ?? null;
+            $sunday  = (bool) $d['is_rest_day'];
+            $worked[$date] = true;
+
+            $key = $this->dayKey($holiday?->getType(), $sunday);
+            if ($key === 'ordinary') {
+                continue;
+            }
+            $m = self::DAY_MULTIPLIERS[$key];
+
+            $atDayRate = bcadd(
+                bcadd(bcmul(bcmul($reg, $hourly, 4), $m, 4), bcmul(bcmul(bcmul($ot, $hourly, 4), $m, 4), self::PREMIUM_DAY_OT_MULTIPLIER, 4), 4),
+                bcmul(bcmul(bcmul($night, $hourly, 4), $m, 4), self::NIGHT_MULTIPLIER, 4),
+                4
+            );
+            $atOrdinary = bcadd(
+                bcadd(bcmul($reg, $hourly, 4), bcmul(bcmul($ot, $hourly, 4), self::OT_MULTIPLIER, 4), 4),
+                bcmul(bcmul($night, $hourly, 4), self::NIGHT_MULTIPLIER, 4),
+                4
+            );
+
+            $lines[] = [
+                'date'   => $date,
+                'label'  => $this->dayLabel($key, $holiday?->getName(), $sunday && !isset($rostered[$date])),
+                'rate'   => bcmul($m, '100', 0) . '%',
+                'hours'  => bcadd($reg, $ot, 2),
+                'amount' => $this->roundHalfUp(bcsub($atDayRate, $atOrdinary, 4)),
+            ];
+        }
+
+        if ($this->settings->getValue(self::SETTING_PAY_UNWORKED_REGULAR, '0') === '1') {
+            $workDays = $this->settings->getWorkDays();
+            $hired    = (string) ($employee['date_hired'] ?? '');
+            $dayPay   = $this->roundHalfUp(bcmul((string) $this->settings->getRegularHours(), $hourly, 4));
+
+            foreach ($holidays as $date => $holiday) {
+                $isWorkDay = in_array(strtolower((new DateTimeImmutable($date))->format('D')), $workDays, true);
+                if ($holiday->getType() !== 'regular' || isset($worked[$date]) || !$isWorkDay || ($hired !== '' && $date < $hired)) {
+                    continue;
+                }
+                $lines[] = [
+                    'date'   => $date,
+                    'label'  => 'Regular holiday, not worked: ' . $holiday->getName(),
+                    'rate'   => '100%',
+                    'hours'  => '0.00',
+                    'amount' => $dayPay,
+                ];
+            }
+        }
+
+        usort($lines, fn(array $a, array $b) => strcmp($a['date'], $b['date']));
+
+        $amount = '0.00';
+        foreach ($lines as $line) {
+            $amount = bcadd($amount, $line['amount'], 2);
+        }
+
+        return ['amount' => $amount, 'lines' => $lines];
+    }
+
+    private function dayKey(?string $holidayType, bool $sunday): string {
+        return match ($holidayType) {
+            'regular'             => $sunday ? 'regular_sunday' : 'regular',
+            'special_non_working' => $sunday ? 'special_sunday' : 'special_non_working',
+            default               => $sunday ? 'sunday' : 'ordinary',
+        };
+    }
+
+    private function dayLabel(string $key, ?string $holidayName, bool $notRostered): string {
+        $label = match ($key) {
+            'sunday'                    => 'Sunday duty',
+            'special_non_working'       => 'Special non-working day: ' . $holidayName,
+            'special_sunday'            => 'Special non-working day on a Sunday: ' . $holidayName,
+            'regular'                   => 'Regular holiday: ' . $holidayName,
+            'regular_sunday'            => 'Regular holiday on a Sunday: ' . $holidayName,
+        };
+        return $notRostered ? $label . ' (not on the duty roster)' : $label;
     }
 
     public function computeOvertimePay(string $hours, string $hourlyRate): string {
@@ -307,7 +444,7 @@ class PayrollService {
         fputcsv($fh, [
             'Employee ID', 'Employee', 'Period Start', 'Period End', 'Pay Frequency',
             'Regular Hours', 'OT Hours', 'Night Diff Hours',
-            'Hourly Rate', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Paid At',
+            'Hourly Rate', 'Sunday/Holiday Pay', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Paid At',
         ]);
 
         foreach ($payrollRows as $row) {
@@ -321,6 +458,7 @@ class PayrollService {
                 $row['total_overtime_hours']    ?? '0.00',
                 $row['total_night_diff_hours']  ?? '0.00',
                 $row['hourly_rate']             ?? '0.00',
+                $row['premium_pay']             ?? '0.00',
                 $row['gross_pay']               ?? '0.00',
                 $row['total_deductions']        ?? '0.00',
                 $row['net_pay']                 ?? '0.00',

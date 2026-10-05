@@ -5,6 +5,7 @@ use App\Repository\EmployeeRepository;
 use App\Repository\MyDashboardRepository;
 use App\Repository\PayrollDeductionRepository;
 use App\Repository\RateHistoryRepository;
+use App\Repository\SundayDutyRepository;
 use App\Repository\DailySummaryRepository;
 use App\Repository\TimePunchRepository;
 use DateTimeImmutable;
@@ -94,6 +95,7 @@ class MyDashboardService {
             'ytd_paid'       => $this->repository->sumPaidNetForYear($employeeId, $year),
             'year'           => $year,
             'thirteenth'     => $thirteenth,
+            'sunday_duty'    => (new SundayDutyRepository())->findUpcomingForEmployee($employeeId, $today->format('Y-m-d'), 4),
             'insights'       => $this->insights($thisMonth, $lastMonth, $streak, $latest, $history, $today),
         ];
     }
@@ -182,6 +184,8 @@ class MyDashboardService {
             'name'   => $d['deduction_name'],
             'amount' => $d['amount'],
         ], $this->deductions->findByPayrollPeriod($payrollId));
+        $slip['premium_lines'] = json_decode((string) ($slip['premium_details'] ?? ''), true) ?: [];
+        unset($slip['premium_details']);
 
         return $slip;
     }

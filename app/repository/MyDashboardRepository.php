@@ -9,7 +9,7 @@ class MyDashboardRepository extends BaseRepository {
     private const PAYSLIP_COLUMNS = 'pp.id, pp.period_start, pp.period_end, pp.pay_frequency,
                                      pp.total_regular_hours, pp.total_overtime_hours, pp.total_night_diff_hours,
                                      pp.total_late_minutes, pp.total_undertime_minutes, pp.hourly_rate,
-                                     pp.gross_pay, pp.total_deductions, pp.net_pay, pp.status,
+                                     pp.premium_pay, pp.premium_details, pp.gross_pay, pp.total_deductions, pp.net_pay, pp.status,
                                      pp.approved_at, pp.paid_at, u.username AS approved_by';
 
     // Only approved/paid payrolls: computed ones can still change on recompute.

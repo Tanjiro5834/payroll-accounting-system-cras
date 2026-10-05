@@ -159,6 +159,8 @@
         .map((k) => row(k, p.gov_ids[k] ? '<span class="num">' + esc(p.gov_ids[k]) + "</span>" : '<span class="text-slate-400">Not on file</span>'))
         .join("");
 
+    renderDuty(s.sunday_duty || [], s.profile.id);
+
     const t = s.thirteenth;
     $("thirteenth-title").textContent = "13th Month Pay " + s.year;
     $("thirteenth-body").innerHTML = t
@@ -170,6 +172,21 @@
         (t.paid_at ? row("Released on", esc(date(t.paid_at))) : "") +
         "</dl>"
       : "Not approved yet. It will show here once your employer approves it.";
+  }
+
+  function renderDuty(duties, me) {
+    $("duty-list").innerHTML = duties.length
+      ? duties.map((d) => {
+          const team = d.members.filter((m) => m.id !== me && m.id !== d.lead_employee_id).map((m) => esc(m.name));
+          const isLead = d.lead_employee_id === me;
+          return '<li class="rounded-xl bg-ink-50 px-3 py-2.5">' +
+            '<p class="font-semibold text-ink num">' + esc(date(d.duty_date, { weekday: "long", month: "short", day: "numeric" })) + "</p>" +
+            '<p class="text-xs text-slate-600 mt-0.5">' + (isLead ? "You're the lead" : "Lead: " + esc(d.lead_name)) + "</p>" +
+            (team.length ? '<p class="text-xs text-slate-500 mt-0.5">With ' + team.join(", ") + "</p>" : "") +
+            (d.notes ? '<p class="text-xs text-slate-400 mt-0.5">' + esc(d.notes) + "</p>" : "") +
+          "</li>";
+        }).join("")
+      : '<li class="text-slate-500">No Sunday duty scheduled.</li>';
   }
 
   /* ---------------- Payslips ---------------- */
@@ -211,6 +228,12 @@
         ? r.deductions.map((d) => line(esc(d.name || d.code), "-" + peso(d.amount), "text-red-700")).join("")
         : line("None", peso(0));
 
+      const extra = r.premium_lines || [];
+      const premium = extra.length
+        ? '<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mt-3 mb-1">Sunday &amp; holiday pay</p>' +
+          extra.map((l) => line(esc(date(l.date)) + " · " + esc(l.label) + ' <span class="text-slate-400">' + esc(l.rate) + "</span>", "+" + peso(l.amount), "text-sky-800")).join("")
+        : "";
+
       $("payslip-body").innerHTML =
         '<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hours</p>' +
         line("Regular", hrs(r.total_regular_hours)) +
@@ -219,6 +242,7 @@
         line("Late", mins(r.total_late_minutes), Number(r.total_late_minutes) ? "text-warning" : "") +
         line("Undertime", mins(r.total_undertime_minutes), Number(r.total_undertime_minutes) ? "text-warning" : "") +
         line("Hourly rate", peso(r.hourly_rate)) +
+        premium +
         '<div class="border-t border-line my-3"></div>' +
         line('<strong class="text-ink">Gross pay</strong>', peso(r.gross_pay), "font-semibold") +
         '<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mt-3 mb-1">Deductions</p>' +

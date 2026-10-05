@@ -27,13 +27,16 @@ class TimePunchService {
 
     private TimePunchRepository $repository;
     private AuditTrailRepository $audit;
+    private SundayDutyService $sundayDuty;
 
     public function __construct(
         ?TimePunchRepository $repository = null,
-        ?AuditTrailRepository $audit = null
+        ?AuditTrailRepository $audit = null,
+        ?SundayDutyService $sundayDuty = null
     ) {
         $this->repository = $repository ?? new TimePunchRepository();
         $this->audit      = $audit      ?? new AuditTrailRepository();
+        $this->sundayDuty = $sundayDuty ?? new SundayDutyService();
     }
 
     public function record(int $employeeId, string $punchType, array $locationData = []): int {
@@ -65,6 +68,12 @@ class TimePunchService {
         ]);
 
         $id = $this->repository->create($punch);
+
+        // Sunday work is by roster. Someone clocking in on a Sunday they weren't assigned still gets paid,
+        // but the owner should see it.
+        if ($punchType === 'AM_IN' && $this->sundayDuty->isDutyDay($workDate) && !$this->sundayDuty->isAssigned($employeeId, $workDate)) {
+            $this->repository->flagById($id, 'Sunday punch, not on the duty roster');
+        }
 
         $this->audit->log($employeeId, 'PUNCH', [
             'punch_type' => $punchType,

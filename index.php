@@ -8,6 +8,7 @@ session_start();
 use App\Config\App;
 use App\Controller\AuthController;
 use App\Controller\DashboardController;
+use App\Controller\DutyCalendarController;
 use App\Controller\EmployeeController;
 use App\Controller\PayrollController;
 use App\Controller\PunchController;
@@ -40,7 +41,6 @@ $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
     'my-dashboard'     => ['dashboard/my-dashboard',            MyDashboardController::class,     'employee', ['summary', 'attendance', 'trend', 'payslips', 'payslip', 'rateHistory', 'uploadPhoto', 'removePhoto', 'changePassword']],
     'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
-    'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto']],
     'employee-form'    => ['employees/employee-form',           EmployeeController::class,        'admin',    ['show', 'store', 'update']],
     'payroll'          => ['payroll/payroll',                   PayrollController::class,         'admin',    ['index', 'compute', 'approve', 'show', 'history', 'export', 'markAsPaid']],
     'thirteenth-month' => ['thirteenth-month/thirteenth-month', ThirteenthMonthController::class, 'admin',    ['generateReport', 'computeAll', 'show', 'approve', 'markAsPaid', 'export']],
@@ -49,6 +49,7 @@ $routes = [
     'punch-employee-list'       => ['punch/punch-employee-list',         PunchController::class,           'employee', ['index']],
     'punch'            => ['punch/punch',                       PunchController::class,           'employee', ['store', 'todayStatus', 'history']],
     'employees'        => ['employees/employees',               EmployeeController::class,        'admin',    ['index', 'search', 'show', 'store', 'update', 'deactivate', 'reactivate', 'uploadPhoto', 'removePhoto']],
+    'duty-calendar'    => ['calendar/duty-calendar',            DutyCalendarController::class,    'admin',    ['roster', 'saveDuty', 'deleteDuty', 'holidays', 'saveHoliday', 'deleteHoliday', 'seedHolidays', 'settings', 'saveSettings']],
     'flagged-punches'  => ['punch/flagged-punches',             FlaggedPunchController::class,    'admin',    ['index', 'review', 'reviewBulk']],
 ];
 
