@@ -77,17 +77,21 @@ class EmployeeService {
 
     public function create(array $data): int {
         $clean = $this->validateAndNormalize($data, false);
-        $id = $this->repository->create(Employee::fromArray($clean));
-        (new StatutoryContributionService())->enroll($id, $clean['date_hired'] ?? date('Y-m-d'));
 
-        $this->rates->record(
-            $id,
-            $clean['pay_frequency'],
-            $clean['hourly_rate'] ?? null,
-            $clean['monthly_rate'] ?? null,
-            $clean['date_hired'] ?? $this->today(),
-            $this->actorId()
-        );
+        // One transaction: a failure in enrollment or rate history must not leave a half-created employee.
+        $id = $this->repository->transaction(function () use ($clean) {
+            $id = $this->repository->create(Employee::fromArray($clean));
+            (new StatutoryContributionService())->enroll($id, $clean['date_hired'] ?? date('Y-m-d'));
+            $this->rates->record(
+                $id,
+                $clean['pay_frequency'],
+                $clean['hourly_rate'] ?? null,
+                $clean['monthly_rate'] ?? null,
+                $clean['date_hired'] ?? $this->today(),
+                $this->actorId()
+            );
+            return $id;
+        });
 
         $this->audit->record('EMPLOYEE_CREATE', $id, array_intersect_key($clean, array_flip([
             'full_name', 'role', 'pay_frequency', 'hourly_rate', 'monthly_rate', 'date_hired',

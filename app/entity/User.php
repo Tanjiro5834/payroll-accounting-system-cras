@@ -52,6 +52,7 @@ class User
 
     // Getters
     public function getId() { return $this->id; }
+    public function setId(int $id): void { $this->id = $id; }
     public function getUsername() { return $this->username; }
     public function getPasswordHash() { return $this->password_hash; }
     public function getRole() { return $this->role; }

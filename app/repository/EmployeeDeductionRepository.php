@@ -46,13 +46,14 @@ class EmployeeDeductionRepository extends BaseRepository {
              INNER JOIN deductions d ON d.id = ed.deduction_id
              WHERE ed.employee_id = :employee_id
                AND ed.is_active = 1
-               AND ed.effective_from <= :on_date
-               AND (ed.effective_to IS NULL OR ed.effective_to >= :on_date)
+               AND ed.effective_from <= :on_date_from
+               AND (ed.effective_to IS NULL OR ed.effective_to >= :on_date_to)
              ORDER BY d.name"
         );
         $stmt->execute([
-            ':employee_id' => $employeeId,
-            ':on_date'     => $onDate,
+            ':employee_id'  => $employeeId,
+            ':on_date_from' => $onDate,
+            ':on_date_to'   => $onDate,
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -182,14 +183,15 @@ class EmployeeDeductionRepository extends BaseRepository {
              WHERE employee_id = :employee_id
                AND deduction_id = :deduction_id
                AND is_active = 1
-               AND effective_from <= :on_date
-               AND (effective_to IS NULL OR effective_to >= :on_date)
+               AND effective_from <= :on_date_from
+               AND (effective_to IS NULL OR effective_to >= :on_date_to)
              LIMIT 1"
         );
         $stmt->execute([
             ':employee_id'  => $employeeId,
             ':deduction_id' => $deductionId,
-            ':on_date'      => $onDate,
+            ':on_date_from' => $onDate,
+            ':on_date_to'   => $onDate,
         ]);
 
         return $stmt->fetchColumn() !== false;
