@@ -182,6 +182,7 @@ class ThirteenthMonthService {
         if ($record['status'] !== 'draft') {
             throw new DomainException("Only draft records can be approved (current: {$record['status']}).");
         }
+        (new ApprovalPolicy())->assertCanApprove($approvedBy, (int) $record['employee_id'], '13th month pay');
 
         if (!$this->repository->approve($id, $approvedBy)) {
             throw new DomainException('Record was modified by another user. Reload and try again.');

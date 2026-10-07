@@ -110,6 +110,7 @@ class PayrollService {
         if ($record['status'] !== 'computed') {
             throw new DomainException("Only computed payrolls can be approved (current: {$record['status']}).");
         }
+        (new ApprovalPolicy())->assertCanApprove($approvedBy, (int) $record['employee_id'], 'payroll');
         if (!$this->repository->approve($payrollId, $approvedBy)) {
             throw new DomainException('Payroll was modified by another user. Reload and try again.');
         }

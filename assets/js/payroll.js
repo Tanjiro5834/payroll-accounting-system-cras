@@ -175,6 +175,10 @@
     );
   }
 
+  function neg(n) {
+    return (Number(n) ? "-" : "") + peso(n);
+  }
+
   function premiumLines(r) {
     try { return JSON.parse(r.premium_details || "[]") || []; } catch (e) { return []; }
   }
@@ -205,7 +209,7 @@
       '<td class="px-4 py-3 text-right font-mono text-xs text-slate-700 whitespace-nowrap">' + peso(r.hourly_rate) + "</td>" +
       premiumCell(r) +
       '<td class="px-4 py-3 text-right font-mono text-xs text-slate-900 whitespace-nowrap">' + peso(r.gross_pay) + "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-xs text-red-700 whitespace-nowrap">-' + peso(r.total_deductions) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs text-red-700 whitespace-nowrap">' + neg(r.total_deductions) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(r.net_pay) + "</td>" +
       '<td class="px-4 py-3"><span class="inline-block px-2 py-0.5 rounded font-mono text-[11px] font-semibold uppercase ' +
         (STATUS_BADGE[r.status] || STATUS_BADGE.draft) + '">' + escapeHtml(r.status) + "</span></td>" +
@@ -224,7 +228,7 @@
         rows.length + " employee" + (rows.length === 1 ? "" : "s") + ")</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-sky-800 whitespace-nowrap">+' + peso(sum("premium_pay")) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-slate-900 whitespace-nowrap">' + peso(sum("gross_pay")) + "</td>" +
-      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-red-700 whitespace-nowrap">-' + peso(sum("total_deductions")) + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-red-700 whitespace-nowrap">' + neg(sum("total_deductions")) + "</td>" +
       '<td class="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">' + peso(sum("net_pay")) + "</td>" +
       '<td colspan="2"></td>';
     return tr;

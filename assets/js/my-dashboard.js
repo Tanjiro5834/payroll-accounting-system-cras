@@ -203,7 +203,7 @@
           '<tr data-id="' + Number(r.id) + '" tabindex="0" class="cursor-pointer focus:outline-none focus:bg-ink-50">' +
           '<td class="px-4 py-3 whitespace-nowrap text-ink">' + esc(period(r.period_start, r.period_end)) + "</td>" +
           '<td class="hidden sm:table-cell px-4 py-3 text-right num text-xs text-slate-700 whitespace-nowrap">' + peso(r.gross_pay) + "</td>" +
-          '<td class="hidden sm:table-cell px-4 py-3 text-right num text-xs text-red-700 whitespace-nowrap">-' + peso(r.total_deductions) + "</td>" +
+          '<td class="hidden sm:table-cell px-4 py-3 text-right num text-xs text-red-700 whitespace-nowrap">' + (Number(r.total_deductions) ? "-" : "") + peso(r.total_deductions) + "</td>" +
           '<td class="px-4 py-3 text-right num font-bold text-emerald-800 whitespace-nowrap">' + peso(r.net_pay) + "</td>" +
           '<td class="px-4 py-3">' + badge(r.status) + "</td>" +
           '<td class="px-4 py-3 hidden md:table-cell text-slate-600">' + esc(r.approved_by || "—") + "</td>" +
