@@ -90,9 +90,14 @@
           (f.reviewed ? " · reviewed" : " · waiting for review") + "</li>").join("") + "</ul>"
       : "";
 
-    const empty = !worked && d.status === "absent" ? '<p class="text-xs text-slate-500 mt-2">No punches recorded. A work day with no punches is unpaid.</p>'
-      : !worked && d.status === "missed_duty" ? '<p class="text-xs text-slate-500 mt-2">You were on the Sunday duty roster but no punches were recorded.</p>'
-      : "";
+        const empty =
+          !worked && d.status === "absent"
+            ? '<p class="text-xs text-slate-500 mt-2">No punches recorded. A work day with no punches is unpaid.</p>'
+            : !worked && d.status === "missed_duty"
+              ? '<p class="text-xs text-slate-500 mt-2">You were on the Sunday duty roster but no punches were recorded.</p>'
+              : !worked && d.status === "today"
+                ? '<p class="text-xs text-slate-500 mt-2">No punches yet today.</p>'
+                : "";
 
     return '<li class="bg-white rounded-2xl border border-line shadow-sm p-4">' +
       '<div class="flex flex-wrap items-center justify-between gap-2">' +
