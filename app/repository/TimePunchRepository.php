@@ -106,6 +106,19 @@ class TimePunchRepository extends BaseRepository {
         return $this->hydrateAll($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    // Raw rows (with review status) for the employee's own time log.
+    public function findLogRows(int $employeeId, string $start, string $end): array {
+        $stmt = $this->db->prepare(
+            "SELECT work_date, punch_type, punch_time, is_flagged, flag_reason, reviewed_at
+             FROM time_punches
+             WHERE employee_id = :employee_id
+               AND work_date BETWEEN :start AND :end
+             ORDER BY work_date ASC, punch_time ASC, id ASC"
+        );
+        $stmt->execute([':employee_id' => $employeeId, ':start' => $start, ':end' => $end]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findByEmployeeAndDateRange(int $employeeId, string $start, string $end): array {
         $stmt = $this->db->prepare(
             "SELECT " . self::COLUMNS . "

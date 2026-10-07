@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>My Time Logs — Coronacion Timekeeping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/theme.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/ui.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: {
+                            50: '#F6F8FB', 100: '#EEF2F7', 200: '#E1E7F0', 300: '#C3CBDA',
+                            400: '#8B98AE', 500: '#5A6A85', 600: '#3A4A66', 700: '#26344F',
+                            800: '#1B2740', 900: '#111A2E', DEFAULT: '#0B1220'
+                        },
+                        coolant: { DEFAULT: '#0E7490', hover: '#155E75', tint: '#E0F2FE' },
+                        frost: '#22D3EE',
+                        line: '#E1E7F0',
+                        positive: '#059669',
+                        negative: '#DC2626',
+                        warning: '#D97706'
+                    },
+                    fontFamily: {
+                        sans: ['"Segoe UI"', 'system-ui', '-apple-system', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['"Roboto Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="font-sans bg-ink-50 text-ink min-h-screen antialiased">
+
+    <header class="lg:hidden sticky top-0 z-30 bg-ink text-white shadow-sm pt-safe">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <img src="assets/images/coronacion-logo.png" alt="Coronacion Logo" class="w-9 h-9 object-contain">
+                <div>
+                    <p class="text-sm font-bold tracking-tight leading-tight">Coronacion</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">Employee</p>
+                </div>
+            </div>
+            <button id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar" class="flex items-center justify-center w-11 h-11 -mr-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-frost transition-colors">
+                <svg id="icon-menu" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                <svg id="icon-close" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="drawer-overlay" class="lg:hidden fixed inset-0 bg-ink/70 z-40 opacity-0 pointer-events-none transition-opacity duration-[220ms]"></div>
+
+    <!-- @sidebar -->
+
+    <main class="lg:pl-72">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-24">
+
+            <div class="mb-5 page-enter flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-ink">My Time Logs</h1>
+                    <p id="schedule" class="text-sm text-slate-500 mt-1">&nbsp;</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="prev-month" type="button" aria-label="Previous month" class="ui-btn w-11 h-11 inline-flex items-center justify-center rounded-xl border border-line bg-white text-slate-700 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                    </button>
+                    <label for="month" class="sr-only">Month</label>
+                    <input id="month" type="month" class="num h-11 px-3 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost">
+                    <button id="next-month" type="button" aria-label="Next month" class="ui-btn w-11 h-11 inline-flex items-center justify-center rounded-xl border border-line bg-white text-slate-700 hover:bg-ink-50 focus:outline-none focus:ring-2 focus:ring-frost disabled:opacity-40 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <section aria-label="Month summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 page-enter">
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Days worked</p>
+                    <p id="t-days" class="num text-2xl font-semibold text-ink mt-1">—</p>
+                    <p id="t-days-sub" class="text-xs text-slate-400 mt-1">&nbsp;</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Late deducted</p>
+                    <p id="t-late" class="num text-2xl font-semibold text-warning mt-1">—</p>
+                    <p id="t-late-sub" class="text-xs text-slate-400 mt-1">&nbsp;</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Overtime</p>
+                    <p id="t-ot" class="num text-2xl font-semibold text-coolant mt-1">—</p>
+                    <p class="text-xs text-slate-400 mt-1">hours</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-line shadow-sm p-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Undertime</p>
+                    <p id="t-ut" class="num text-2xl font-semibold text-ink mt-1">—</p>
+                    <p id="t-flags" class="text-xs text-slate-400 mt-1">&nbsp;</p>
+                </div>
+            </section>
+
+            <div class="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Show">
+                <button type="button" data-filter="all" aria-pressed="true" class="filter-btn px-3 min-h-[36px] rounded-full border border-line text-xs font-semibold">All days</button>
+                <button type="button" data-filter="issues" aria-pressed="false" class="filter-btn px-3 min-h-[36px] rounded-full border border-line text-xs font-semibold">Late, absent or flagged</button>
+            </div>
+
+            <ol id="days" class="space-y-3" aria-live="polite">
+                <li class="bg-white rounded-2xl border border-line p-4"><div class="skeleton h-4 w-1/3 mb-3"></div><div class="skeleton h-3 w-2/3"></div></li>
+                <li class="bg-white rounded-2xl border border-line p-4"><div class="skeleton h-4 w-1/4 mb-3"></div><div class="skeleton h-3 w-1/2"></div></li>
+            </ol>
+
+            <p class="text-xs text-slate-400 mt-6">Hours here are the same ones payroll uses. Something wrong? Tell the owner the date and what happened.</p>
+        </div>
+    </main>
+
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/ui.js"></script>
+    <script src="assets/js/my-time-logs.js"></script>
+</body>
+</html>
