@@ -65,7 +65,6 @@ class FlaggingService {
             'early_out'                  => $this->flagEarlyOut($date),
             'short_lunch'                => $this->flagShortLunch($date),
             'long_lunch'                 => $this->flagLongLunch($date),
-            'out_from_different_ip'      => $this->flagOutFromDifferentIp($date),
             'same_device_multiple_users' => $this->flagSameDeviceMultipleEmployees($date),
         ];
     }
