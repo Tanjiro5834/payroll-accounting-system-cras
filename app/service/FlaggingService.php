@@ -11,16 +11,49 @@ use InvalidArgumentException;
 class FlaggingService {
     private const TIMEZONE = 'Asia/Manila';
 
-    private const SHORT_LUNCH_MINUTES = 50;
-    private const LONG_LUNCH_MAX = 70;
+    // A lunch break more than 10 minutes off the scheduled length gets flagged (60-min lunch: < 50 or > 70).
+    private const LUNCH_TOLERANCE_MINUTES = 10;
+    // First run, or after a long gap: don't scan further back than this.
+    private const MAX_CATCH_UP_DAYS = 31;
+    public const SETTING_CHECKED_THROUGH = 'flags_checked_through';
     private const HABITUAL_LATE_LIMIT = 3;
     private const MAX_BULK_REVIEW = 500;
     private const REVIEW_STATUSES = ['open', 'reviewed', 'all'];
 
     private TimePunchRepository $repository;
+    private SystemSettingService $settings;
 
-    public function __construct(?TimePunchRepository $repository = null) {
+    public function __construct(?TimePunchRepository $repository = null, ?SystemSettingService $settings = null) {
         $this->repository = $repository ?? new TimePunchRepository();
+        $this->settings   = $settings   ?? new SystemSettingService();
+    }
+
+    /**
+     * Runs the daily flag rules for every finished day not checked yet (up to yesterday), then remembers
+     * how far it got. No cron needed: called whenever the owner opens Flagged Punches or the dashboard.
+     * Today is never checked, because people are still punching (a missing PM_OUT at 10 AM isn't missing yet).
+     * @return array{checked: string[], flagged: int}
+     */
+    public function runPendingDays(): array {
+        $tz        = new DateTimeZone(self::TIMEZONE);
+        $yesterday = (new DateTimeImmutable('yesterday', $tz))->format('Y-m-d');
+        $floor     = (new DateTimeImmutable('today', $tz))->modify('-' . self::MAX_CATCH_UP_DAYS . ' days')->format('Y-m-d');
+
+        $last = (string) $this->settings->getValue(self::SETTING_CHECKED_THROUGH, '');
+        $from = $last !== '' ? (new DateTimeImmutable($last, $tz))->modify('+1 day')->format('Y-m-d') : $floor;
+        $from = max($from, $floor);
+
+        $checked = [];
+        $flagged = 0;
+        for ($d = $from; $d <= $yesterday; $d = (new DateTimeImmutable($d, $tz))->modify('+1 day')->format('Y-m-d')) {
+            $flagged  += array_sum(array_slice($this->runDailyFlags($d), 1));
+            $checked[] = $d;
+        }
+
+        if ($checked) {
+            $this->settings->setValue(self::SETTING_CHECKED_THROUGH, $yesterday);
+        }
+        return ['checked' => $checked, 'flagged' => $flagged];
     }
 
     public function runDailyFlags(?string $date = null): array {
@@ -28,11 +61,11 @@ class FlaggingService {
 
         return [
             'date'                       => $date,
-            'out_from_different_ip'      => $this->flagOutFromDifferentIp($date),
             'missing_punch'              => $this->flagMissingPunch($date),
+            'early_out'                  => $this->flagEarlyOut($date),
             'short_lunch'                => $this->flagShortLunch($date),
             'long_lunch'                 => $this->flagLongLunch($date),
-            'early_out'                  => $this->flagEarlyOut($date),
+            'out_from_different_ip'      => $this->flagOutFromDifferentIp($date),
             'same_device_multiple_users' => $this->flagSameDeviceMultipleEmployees($date),
         ];
     }
@@ -49,17 +82,17 @@ class FlaggingService {
 
     public function flagShortLunch(string $date): int {
         $this->assertDate($date, 'date');
-        return $this->repository->flagShortLunch($date, self::SHORT_LUNCH_MINUTES);
+        return $this->repository->flagShortLunch($date, $this->lunchMinutes() - self::LUNCH_TOLERANCE_MINUTES);
     }
 
     public function flagLongLunch(string $date): int {
         $this->assertDate($date, 'date');
-        return $this->repository->flagLongLunch($date, self::LONG_LUNCH_MAX);
+        return $this->repository->flagLongLunch($date, $this->lunchMinutes() + self::LUNCH_TOLERANCE_MINUTES);
     }
 
     public function flagEarlyOut(string $date): int {
         $this->assertDate($date, 'date');
-        return $this->repository->flagEarlyOut($date);
+        return $this->repository->flagEarlyOut($date, $this->settings->getWorkEnd() . ':00');
     }
 
     public function flagHabitualLate(int $employeeId, int $year, int $month): int {
@@ -212,6 +245,12 @@ class FlaggingService {
             'by_reason' => $byReason,
             'by_type'   => $byType,
         ];
+    }
+
+    private function lunchMinutes(): int {
+        $start = DateTimeImmutable::createFromFormat('!H:i', $this->settings->getLunchStart());
+        $end   = DateTimeImmutable::createFromFormat('!H:i', $this->settings->getLunchEnd());
+        return intdiv($end->getTimestamp() - $start->getTimestamp(), 60);
     }
 
     private function resolveDate(?string $date): string {

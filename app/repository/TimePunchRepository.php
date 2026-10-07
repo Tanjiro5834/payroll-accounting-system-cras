@@ -350,7 +350,7 @@ class TimePunchRepository extends BaseRepository {
         return $stmt->rowCount();
     }
 
-    public function flagEarlyOut(string $date): int {
+    public function flagEarlyOut(string $date, string $workEnd = '17:00:00'): int {
         $stmt = $this->db->prepare(
             "UPDATE time_punches
              SET is_flagged = 1,
@@ -358,9 +358,9 @@ class TimePunchRepository extends BaseRepository {
              WHERE work_date = :d
                AND punch_type = 'PM_OUT'
                AND is_flagged = 0
-               AND TIME(punch_time) < '17:00:00'"
+               AND TIME(punch_time) < :work_end"
         );
-        $stmt->execute([':d' => $date]);
+        $stmt->execute([':d' => $date, ':work_end' => $workEnd]);
 
         return $stmt->rowCount();
     }

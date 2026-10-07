@@ -16,12 +16,15 @@ class FlaggedPunchController extends BaseController {
     public function index(): void {
         AuthMiddleware::requireLogin();
 
-        $this->guard(fn() => Response::json($this->service->search(
-            $this->queryTrim('status', 'open'),
-            $this->queryTrim('date_from'),
-            $this->queryTrim('date_to'),
-            $this->queryInt('employee_id')
-        )), 'Failed to load flagged punches.');
+        $this->guard(function () {
+            $this->service->runPendingDays();
+            Response::json($this->service->search(
+                $this->queryTrim('status', 'open'),
+                $this->queryTrim('date_from'),
+                $this->queryTrim('date_to'),
+                $this->queryInt('employee_id')
+            ));
+        }, 'Failed to load flagged punches.');
     }
 
     // POST ?page=flagged-punches&action=review&id=51

@@ -3,6 +3,7 @@ namespace App\Controller;
 
 use App\Helper\Response;
 use App\Service\DashboardService;
+use App\Service\FlaggingService;
 
 class DashboardController extends BaseController {
     private DashboardService $service;
@@ -29,10 +30,10 @@ class DashboardController extends BaseController {
 
     // GET ?page=dashboard&action=flaggedPunches[&date=Y-m-d]
     public function flaggedPunches(): void {
-        $this->guard(
-            fn() => Response::json($this->service->getFlaggedPunches($this->queryDate())),
-            'Failed to load flagged punches.'
-        );
+        $this->guard(function () {
+            (new FlaggingService())->runPendingDays();
+            Response::json($this->service->getFlaggedPunches($this->queryDate()));
+        }, 'Failed to load flagged punches.');
     }
 
     // GET ?page=dashboard&action=payrollPending
