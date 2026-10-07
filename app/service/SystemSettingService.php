@@ -26,7 +26,7 @@ class SystemSettingService {
         self::LUNCH_START    => '12:00',
         self::LUNCH_END      => '13:00',
         self::REGULAR_HOURS  => '8',
-        self::LATE_THRESHOLD => '15',
+        self::LATE_THRESHOLD => '10',
         self::WORK_DAYS      => 'mon,tue,wed,thu,fri,sat',
         self::REST_DAY       => 'sun',
     ];

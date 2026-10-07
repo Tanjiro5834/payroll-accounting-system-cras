@@ -23,7 +23,7 @@ class DashboardRepository extends BaseRepository {
                      WHERE tp.work_date = :d_late AND tp.punch_type = 'AM_IN'
                      GROUP BY tp.employee_id
                  ) f
-                 WHERE f.first_in > :late_after) AS late,
+                 WHERE f.first_in >= :late_after) AS late,
 
                 (SELECT COUNT(*) FROM time_punches
                  WHERE work_date = :d_flagged AND is_flagged = 1 AND reviewed_at IS NULL) AS flagged,

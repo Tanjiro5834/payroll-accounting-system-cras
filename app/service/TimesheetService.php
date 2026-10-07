@@ -57,8 +57,12 @@ class TimesheetService {
      * Rules (schedule from system settings):
      * - Regular hours = time worked INSIDE the schedule (AM: work start → lunch start, PM: lunch end → work end),
      *   capped at regular_hours. Coming early or staying late is not paid unless punched as OT.
-     * - Late = minutes after the scheduled start, counted only when beyond the grace threshold.
-     *   Arriving within the grace period counts as on time and is paid in full.
+     * - Late (owner's rule), per half (AM_IN vs work start, PM_IN vs lunch end):
+     *     under late_threshold (10 min)  → on time, paid in full
+     *     from the threshold             → charged whole hours, at least 1: 10–119 min = 1 h, 120–179 = 2 h, …
+     *   The charged hours are unpaid even if they arrived partway into the hour (20 min late = 1 h off),
+     *   and minutes past the charged hours are forgiven (9:10 for an 8:00 start = 1 h off, not 1 h 10 m).
+     *   late_minutes stores the CHARGED minutes, i.e. what came off their pay.
      * - Undertime = minutes left before the scheduled end.
      * - A half-day with a missing IN or OUT punch counts 0 hours for that half.
      * - OT = OT_OUT − OT_IN. Night diff = any worked minutes between 22:00 and 06:00.
@@ -81,8 +85,11 @@ class TimesheetService {
             'ot' => [$punch('OT_IN'), $punch('OT_OUT')],
         ];
 
-        $regularMinutes = $this->overlapMinutes($this->forgiveGrace($intervals['am'], $workStart, $grace), $workStart, $lunchStart)
-                        + $this->overlapMinutes($this->forgiveGrace($intervals['pm'], $lunchEnd, $grace), $lunchEnd, $workEnd);
+        [$am, $amLate] = $this->chargeLate($intervals['am'], $workStart, $lunchStart, $grace);
+        [$pm, $pmLate] = $this->chargeLate($intervals['pm'], $lunchEnd, $workEnd, $grace);
+
+        $regularMinutes = $this->overlapMinutes($am, $workStart, $lunchStart)
+                        + $this->overlapMinutes($pm, $lunchEnd, $workEnd);
         $regularMinutes = min($regularMinutes, (int) round($this->settings->getRegularHours() * 60));
 
         $nightMinutes = 0;
@@ -96,8 +103,7 @@ class TimesheetService {
             'regular_hours'     => round($regularMinutes / 60, 2),
             'overtime_hours'    => round($this->durationMinutes($intervals['ot']) / 60, 2),
             'night_diff_hours'  => round($nightMinutes / 60, 2),
-            'late_minutes'      => $this->lateMinutes($punch('AM_IN'), $workStart, $grace)
-                                 + $this->lateMinutes($punch('PM_IN'), $lunchEnd, $grace),
+            'late_minutes'      => $amLate + $pmLate,
             'undertime_minutes' => $this->earlyMinutes($punch('AM_OUT'), $lunchStart)
                                  + $this->earlyMinutes($punch('PM_OUT'), $workEnd),
             'is_rest_day'       => $this->isRestDay($date) ? 1 : 0,
@@ -114,13 +120,23 @@ class TimesheetService {
         return $grouped;
     }
 
-    // An IN within the grace period is treated as the scheduled start, so those minutes are paid.
-    private function forgiveGrace(array $interval, DateTimeImmutable $scheduled, int $grace): array {
+    /**
+     * Moves a late IN to the end of the charged hours, so overlapMinutes() pays from there.
+     * @return array{0: array, 1: int} [adjusted interval, charged minutes]
+     */
+    private function chargeLate(array $interval, DateTimeImmutable $scheduled, DateTimeImmutable $halfEnd, int $threshold): array {
         [$in, $out] = $interval;
-        if ($in && $in > $scheduled && $this->minutesBetween($scheduled, $in) <= $grace) {
-            $in = $scheduled;
+        if (!$in || $in <= $scheduled) {
+            return [$interval, 0]; // absent half, on time, or early (early minutes aren't paid anyway)
         }
-        return [$in, $out];
+
+        $late = $this->minutesBetween($scheduled, $in);
+        if ($late === 0 || $late < $threshold) {
+            return [[$scheduled, $out], 0];
+        }
+
+        $charged = min(max(1, intdiv($late, 60)) * 60, $this->minutesBetween($scheduled, $halfEnd));
+        return [[$scheduled->modify("+{$charged} minutes"), $out], $charged];
     }
 
     private function overlapMinutes(array $interval, DateTimeImmutable $from, DateTimeImmutable $to): int {
@@ -146,14 +162,6 @@ class TimesheetService {
         $dayStart = new DateTimeImmutable("{$date} 00:00");
         return $this->minutesBetween(max($in, $dayStart), min($out, $dayStart->modify('+6 hours')))
              + $this->minutesBetween(max($in, $dayStart->modify('+22 hours')), min($out, $dayStart->modify('+30 hours')));
-    }
-
-    private function lateMinutes(?DateTimeImmutable $in, DateTimeImmutable $scheduled, int $grace): int {
-        if (!$in) {
-            return 0;
-        }
-        $late = $this->minutesBetween($scheduled, $in);
-        return $late > $grace ? $late : 0;
     }
 
     private function earlyMinutes(?DateTimeImmutable $out, DateTimeImmutable $scheduledEnd): int {

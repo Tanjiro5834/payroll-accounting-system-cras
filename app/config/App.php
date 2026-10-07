@@ -9,6 +9,6 @@ class App{
     const LUNCH_START = '12:00:00';
     const LUNCH_END = '13:00:00';
     const REGULAR_HOURS_PER_DAY = 8;
-    const LATE_THRESHOLD_MINUTES = 15;
+    const LATE_THRESHOLD_MINUTES = 10;
     const WORK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 }
