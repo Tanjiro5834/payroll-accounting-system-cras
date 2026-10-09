@@ -14,8 +14,8 @@
     absent:         { label: "Absent",          cls: "bg-red-50 text-red-800" },
     today:          { label: "Today",           cls: "bg-coolant-tint text-coolant" },
   };
-  const SLOTS = [["AM_IN", "AM in"], ["AM_OUT", "AM out"], ["PM_IN", "PM in"], ["PM_OUT", "PM out"], ["OT_IN", "OT in"], ["OT_OUT", "OT out"]];
-  const PUNCH = { AM_IN: "AM in", AM_OUT: "AM out", PM_IN: "PM in", PM_OUT: "PM out", OT_IN: "OT in", OT_OUT: "OT out" };
+  const SLOTS = [["AM_IN", "Time in"], ["AM_OUT", "Lunch out"], ["PM_IN", "Lunch in"], ["PM_OUT", "Time out"], ["OT_IN", "OT in"], ["OT_OUT", "OT out"]];
+  const PUNCH = { AM_IN: "Time in", AM_OUT: "Lunch out", PM_IN: "Lunch in", PM_OUT: "Time out", OT_IN: "OT in", OT_OUT: "OT out" };
 
   const now = new Date();
   const thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
@@ -58,7 +58,8 @@
 
   function slot(type, label, d) {
     const t = d.times[type];
-    if (!t && type.startsWith("OT")) return "";
+    // OT and lunch punches only show when they exist (lunch is no longer punched).
+    if (!t && (type.startsWith("OT") || type === "AM_OUT" || type === "PM_IN")) return "";
     const flagged = d.flags.some((f) => f.punch === type && !f.reviewed);
     return '<div class="rounded-lg px-2 py-1.5 ' + (flagged ? "bg-amber-50 ring-1 ring-amber-200" : "bg-ink-50") + '">' +
       '<p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">' + label + "</p>" +

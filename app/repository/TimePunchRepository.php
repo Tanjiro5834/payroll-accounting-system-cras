@@ -14,11 +14,6 @@ class TimePunchRepository extends BaseRepository {
                                    tp.gps_accuracy, tp.device_fingerprint, tp.is_flagged,
                                    tp.flag_reason, tp.reviewed_by, tp.reviewed_at, tp.created_at';
 
-    private const PAIRS = [
-        'AM_IN'  => 'AM_OUT',
-        'PM_IN'  => 'PM_OUT',
-        'OT_IN'  => 'OT_OUT',
-    ];
 
     public function create(TimePunch $timePunch): int {
         $stmt = $this->db->prepare(
@@ -288,31 +283,23 @@ class TimePunchRepository extends BaseRepository {
                  p1.flag_reason = 'Missing paired punch'
              WHERE p1.work_date = :d
                AND p1.is_flagged = 0
-               AND (
-                   (p1.punch_type IN ('AM_IN', 'PM_IN', 'OT_IN') AND NOT EXISTS (
-                       SELECT 1 FROM time_punches p2
-                       WHERE p2.employee_id = p1.employee_id
-                         AND p2.work_date   = p1.work_date
-                         AND p2.punch_type = CASE p1.punch_type
-                             WHEN 'AM_IN' THEN 'AM_OUT'
-                             WHEN 'PM_IN' THEN 'PM_OUT'
-                             WHEN 'OT_IN' THEN 'OT_OUT'
-                         END
-                   ))
-                   OR
-                   (p1.punch_type IN ('AM_OUT', 'PM_OUT', 'OT_OUT') AND NOT EXISTS (
-                       SELECT 1 FROM time_punches p2
-                       WHERE p2.employee_id = p1.employee_id
-                         AND p2.work_date   = p1.work_date
-                         AND p2.punch_type = CASE p1.punch_type
-                             WHEN 'AM_OUT' THEN 'AM_IN'
-                             WHEN 'PM_OUT' THEN 'PM_IN'
-                             WHEN 'OT_OUT' THEN 'OT_IN'
-                         END
-                   ))
+               AND NOT EXISTS (
+                   -- Two-punch day: TIME IN (AM_IN) pairs with TIME OUT (PM_OUT).
+                   -- Older four-punch days: AM_IN/AM_OUT and PM_IN/PM_OUT also pair.
+                   -- Derived table: MySQL (unlike MariaDB) rejects a subquery on the table being updated.
+                   SELECT 1 FROM (SELECT employee_id, punch_type FROM time_punches WHERE work_date = :d2) p2
+                   WHERE p2.employee_id = p1.employee_id
+                     AND (
+                          (p1.punch_type = 'AM_IN'  AND p2.punch_type IN ('PM_OUT', 'AM_OUT'))
+                       OR (p1.punch_type = 'PM_OUT' AND p2.punch_type IN ('AM_IN', 'PM_IN'))
+                       OR (p1.punch_type = 'AM_OUT' AND p2.punch_type = 'AM_IN')
+                       OR (p1.punch_type = 'PM_IN'  AND p2.punch_type = 'PM_OUT')
+                       OR (p1.punch_type = 'OT_IN'  AND p2.punch_type = 'OT_OUT')
+                       OR (p1.punch_type = 'OT_OUT' AND p2.punch_type = 'OT_IN')
+                     )
                )"
         );
-        $stmt->execute([':d' => $date]);
+        $stmt->execute([':d' => $date, ':d2' => $date]);
 
         return $stmt->rowCount();
     }

@@ -14,13 +14,16 @@ use InvalidArgumentException;
 class TimePunchService {
     private const TIMEZONE = 'Asia/Manila';
 
-    private const PUNCH_SEQUENCE = ['AM_IN', 'AM_OUT', 'PM_IN', 'PM_OUT', 'OT_IN', 'OT_OUT'];
+    // Two punches a day, like the bundy clock: TIME IN and TIME OUT. Lunch is not punched (it is
+    // deducted automatically). The stored codes stay AM_IN / PM_OUT so existing data keeps working.
+    private const PUNCH_SEQUENCE = ['AM_IN', 'PM_OUT', 'OT_IN', 'OT_OUT'];
 
+    // AM_OUT / PM_IN are no longer punched; their labels stay for older records.
     private const PUNCH_LABELS = [
-        'AM_IN'  => 'Morning In',
-        'AM_OUT' => 'Morning Out',
-        'PM_IN'  => 'Afternoon In',
-        'PM_OUT' => 'Afternoon Out',
+        'AM_IN'  => 'Time In',
+        'AM_OUT' => 'Lunch Out',
+        'PM_IN'  => 'Lunch In',
+        'PM_OUT' => 'Time Out',
         'OT_IN'  => 'Overtime In',
         'OT_OUT' => 'Overtime Out',
     ];
@@ -97,7 +100,7 @@ class TimePunchService {
             return $punchType === 'AM_IN' ? null : 'The first punch of the day must be AM_IN.';
         }
 
-        $lastType = $last->getPunchType();
+        $lastType = $this->sequenceType($last->getPunchType());
         if ($lastType === $punchType) {
             return "Duplicate punch: {$punchType} was already recorded today.";
         }
@@ -197,13 +200,18 @@ class TimePunchService {
         return $this->validatePunch($employeeId, $punchType, DateTimeHelper::today()) === null;
     }
 
+    // A day punched under the old four-punch flow may end on AM_OUT or PM_IN; both mean "still clocked in".
+    private function sequenceType(string $type): string {
+        return in_array($type, ['AM_OUT', 'PM_IN'], true) ? 'AM_IN' : $type;
+    }
+
     public function calculateNextPunchType(int $employeeId, string $date): ?string {
         $last = $this->repository->getLastPunchOfDay($employeeId, $date);
         if ($last === null) {
             return self::PUNCH_SEQUENCE[0];
         }
 
-        $lastIdx = array_search($last->getPunchType(), self::PUNCH_SEQUENCE, true);
+        $lastIdx = array_search($this->sequenceType($last->getPunchType()), self::PUNCH_SEQUENCE, true);
         if ($lastIdx === false) {
             return null;
         }

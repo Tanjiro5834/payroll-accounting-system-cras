@@ -67,8 +67,9 @@
     return ((h % 12) || 12) + ":" + String(m).padStart(2, "0") + " " + suffix;
   }
 
+  const PUNCH_NAMES = { AM_IN: "Time In", PM_OUT: "Time Out", AM_OUT: "Lunch Out", PM_IN: "Lunch In", OT_IN: "OT In", OT_OUT: "OT Out" };
   function punchLabel(type) {
-    return String(type).replace("_", " ");
+    return PUNCH_NAMES[type] || String(type).replace("_", " ");
   }
 
   function punchBadgeClass(type) {

@@ -152,7 +152,7 @@ class MyTimeLogService {
     // Plain-language reasons behind the numbers, e.g. "In at 8:20, 20 min late → 1 hr deducted".
     private function notes(array $times, int $lateCharged, int $undertime, array $schedule, bool $isToday): array {
         $notes = [];
-        foreach ([['AM_IN', 'work_start', 'Morning'], ['PM_IN', 'lunch_end', 'After lunch']] as [$type, $key, $label]) {
+        foreach ([['AM_IN', 'work_start', 'Time in'], ['PM_IN', 'lunch_end', 'After lunch']] as [$type, $key, $label]) {
             if (!$times[$type]) {
                 continue;
             }
@@ -172,10 +172,18 @@ class MyTimeLogService {
         if ($undertime > 0) {
             $notes[] = "Left {$this->duration($undertime)} before the end of the schedule (unpaid).";
         }
-        foreach ([['AM_IN', 'AM_OUT', 'Morning'], ['PM_IN', 'PM_OUT', 'Afternoon'], ['OT_IN', 'OT_OUT', 'Overtime']] as [$in, $out, $label]) {
+        // Two-punch days pair TIME IN with TIME OUT; older four-punch days pair each half.
+        $pairs = ($times['AM_OUT'] || $times['PM_IN'])
+            ? [['AM_IN', 'AM_OUT', 'Morning'], ['PM_IN', 'PM_OUT', 'Afternoon']]
+            : [['AM_IN', 'PM_OUT', 'Day']];
+        $pairs[] = ['OT_IN', 'OT_OUT', 'Overtime'];
+        foreach ($pairs as [$in, $out, $label]) {
             if ($times[$in] xor $times[$out]) {
-                $notes[] = "{$label}: " . ($times[$in] ? 'no time-out' : 'no time-in') . ' recorded, so that part counts 0 hours.';
+                $notes[] = "{$label}: " . ($times[$in] ? 'no time-out' : 'no time-in') . ' recorded, so it counts 0 hours until corrected.';
             }
+        }
+        if ($times['AM_IN'] && $times['PM_OUT'] && !$times['AM_OUT'] && !$times['PM_IN']) {
+            $notes[] = 'Lunch (1 hr) is unpaid and deducted automatically.';
         }
         if ($lateCharged === 0 && !$notes) {
             $notes[] = 'On time.';

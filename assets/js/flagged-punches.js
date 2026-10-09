@@ -54,8 +54,8 @@
   }
 
   var PUNCH_LABELS = {
-    AM_IN: "AM In", AM_OUT: "AM Out",
-    PM_IN: "PM In", PM_OUT: "PM Out",
+    AM_IN: "Time In", AM_OUT: "Lunch Out",
+    PM_IN: "Lunch In", PM_OUT: "Time Out",
     OT_IN: "OT In", OT_OUT: "OT Out"
   };
   function punchLabel(t) {

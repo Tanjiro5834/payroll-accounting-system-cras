@@ -57,14 +57,16 @@ class TimesheetService {
      * Rules (schedule from system settings):
      * - Regular hours = time worked INSIDE the schedule (AM: work start → lunch start, PM: lunch end → work end),
      *   capped at regular_hours. Coming early or staying late is not paid unless punched as OT.
-     * - Late (owner's rule), per half (AM_IN vs work start, PM_IN vs lunch end):
+     * - Late (owner's rule), from TIME IN vs work start (four-punch days: also PM_IN vs lunch end):
      *     under late_threshold (10 min)  → on time, paid in full
      *     from the threshold             → charged whole hours, at least 1: 10–119 min = 1 h, 120–179 = 2 h, …
      *   The charged hours are unpaid even if they arrived partway into the hour (20 min late = 1 h off),
      *   and minutes past the charged hours are forgiven (9:10 for an 8:00 start = 1 h off, not 1 h 10 m).
      *   late_minutes stores the CHARGED minutes, i.e. what came off their pay.
      * - Undertime = minutes left before the scheduled end.
-     * - A half-day with a missing IN or OUT punch counts 0 hours for that half.
+     * - Normal day = 2 punches (TIME IN = AM_IN, TIME OUT = PM_OUT); lunch is deducted automatically, unpaid.
+     *   A day with only a TIME IN (no TIME OUT) counts 0 hours until the punch is corrected.
+     * - Four-punch days (AM_OUT/PM_IN present, older data): a half with a missing IN or OUT counts 0 hours.
      * - OT = OT_OUT − OT_IN. Night diff = any worked minutes between 22:00 and 06:00.
      *
      * @param array<string,string> $times punch_type => 'Y-m-d H:i:s'
@@ -77,23 +79,40 @@ class TimesheetService {
         $lunchStart = $at($this->settings->getLunchStart());
         $lunchEnd   = $at($this->settings->getLunchEnd());
         $workEnd    = $at($this->settings->getWorkEnd());
-        $grace      = $this->settings->getLateThreshold();
+        $threshold  = $this->settings->getLateThreshold();
+        $lunch      = [$lunchStart, $lunchEnd];
 
-        $intervals = [
-            'am' => [$punch('AM_IN'), $punch('AM_OUT')],
-            'pm' => [$punch('PM_IN'), $punch('PM_OUT')],
-            'ot' => [$punch('OT_IN'), $punch('OT_OUT')],
-        ];
+        $ot = [$punch('OT_IN'), $punch('OT_OUT')];
 
-        [$am, $amLate] = $this->chargeLate($intervals['am'], $workStart, $lunchStart, $grace);
-        [$pm, $pmLate] = $this->chargeLate($intervals['pm'], $lunchEnd, $workEnd, $grace);
+        // Two-punch day (the normal case, like the old bundy): TIME IN = AM_IN, TIME OUT = PM_OUT, no lunch punches.
+        // Lunch is always unpaid, so it is cut out of the span automatically.
+        // Days that do have AM_OUT / PM_IN (older data) keep the four-punch calculation.
+        $fourPunch = isset($times['AM_OUT']) || isset($times['PM_IN']);
 
-        $regularMinutes = $this->overlapMinutes($am, $workStart, $lunchStart)
-                        + $this->overlapMinutes($pm, $lunchEnd, $workEnd);
-        $regularMinutes = min($regularMinutes, (int) round($this->settings->getRegularHours() * 60));
+        if ($fourPunch) {
+            [$am, $amLate] = $this->chargeLate([$punch('AM_IN'), $punch('AM_OUT')], $workStart, $lunchStart, $threshold);
+            [$pm, $pmLate] = $this->chargeLate([$punch('PM_IN'), $punch('PM_OUT')], $lunchEnd, $workEnd, $threshold);
+            $regularMinutes = $this->overlapMinutes($am, $workStart, $lunchStart)
+                            + $this->overlapMinutes($pm, $lunchEnd, $workEnd);
+            $late      = $amLate + $pmLate;
+            $undertime = $this->earlyMinutes($punch('AM_OUT'), $lunchStart)
+                       + $this->earlyMinutes($punch('PM_OUT'), $workEnd);
+            $worked    = [$am, $pm, $ot];
+        } else {
+            [$span, $late] = $this->chargeLate([$punch('AM_IN'), $punch('PM_OUT')], $workStart, $workEnd, $threshold);
+            $regularMinutes = $this->overlapMinutes($span, $workStart, $workEnd)
+                            - $this->overlapMinutes($span, $lunchStart, $lunchEnd);
+            $out = $punch('PM_OUT');
+            $undertime = $out && $out < $workEnd
+                ? $this->minutesBetween($out, $workEnd) - $this->overlapMinutes([$out, $workEnd], $lunchStart, $lunchEnd)
+                : 0;
+            $worked = [$span, $ot];
+        }
+
+        $regularMinutes = max(0, min($regularMinutes, (int) round($this->settings->getRegularHours() * 60)));
 
         $nightMinutes = 0;
-        foreach ($intervals as $interval) {
+        foreach ($worked as $interval) {
             $nightMinutes += $this->nightMinutes($interval, $date);
         }
 
@@ -101,11 +120,10 @@ class TimesheetService {
             'employee_id'       => $employeeId,
             'work_date'         => $date,
             'regular_hours'     => round($regularMinutes / 60, 2),
-            'overtime_hours'    => round($this->durationMinutes($intervals['ot']) / 60, 2),
+            'overtime_hours'    => round($this->durationMinutes($ot) / 60, 2),
             'night_diff_hours'  => round($nightMinutes / 60, 2),
-            'late_minutes'      => $amLate + $pmLate,
-            'undertime_minutes' => $this->earlyMinutes($punch('AM_OUT'), $lunchStart)
-                                 + $this->earlyMinutes($punch('PM_OUT'), $workEnd),
+            'late_minutes'      => $late,
+            'undertime_minutes' => $undertime,
             'is_rest_day'       => $this->isRestDay($date) ? 1 : 0,
         ];
     }
