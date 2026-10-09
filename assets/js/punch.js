@@ -62,12 +62,11 @@
   updateClock();
   setInterval(updateClock, 1000);
 
-  // Two punches a day, like the bundy: TIME IN and TIME OUT. Lunch is deducted automatically.
+  // Two punches a day, like the bundy: TIME IN and TIME OUT. Lunch is deducted automatically,
+  // and TIME OUT after the scheduled end counts as overtime.
   const PUNCH_TYPES = [
     { key: "am_in", label: "TIME IN", dir: "in" },
     { key: "pm_out", label: "TIME OUT", dir: "out" },
-    { key: "ot_in", label: "OT IN", dir: "in" },
-    { key: "ot_out", label: "OT OUT", dir: "out" },
   ];
 
   let nextPunch = null;

@@ -16,7 +16,8 @@ class TimePunchService {
 
     // Two punches a day, like the bundy clock: TIME IN and TIME OUT. Lunch is not punched (it is
     // deducted automatically). The stored codes stay AM_IN / PM_OUT so existing data keeps working.
-    private const PUNCH_SEQUENCE = ['AM_IN', 'PM_OUT', 'OT_IN', 'OT_OUT'];
+    // Overtime needs no separate punch: TIME OUT after the scheduled end counts as OT.
+    private const PUNCH_SEQUENCE = ['AM_IN', 'PM_OUT'];
 
     // AM_OUT / PM_IN are no longer punched; their labels stay for older records.
     private const PUNCH_LABELS = [

@@ -172,6 +172,10 @@ class MyTimeLogService {
         if ($undertime > 0) {
             $notes[] = "Left {$this->duration($undertime)} before the end of the schedule (unpaid).";
         }
+        $otAfter = $times['PM_OUT'] ? $this->minutesBetween($schedule['work_end'], $times['PM_OUT']) : 0;
+        if ($otAfter > 0 && !$times['AM_OUT'] && !$times['PM_IN']) {
+            $notes[] = "Out at {$this->clock($times['PM_OUT'])}: {$this->duration($otAfter)} overtime.";
+        }
         // Two-punch days pair TIME IN with TIME OUT; older four-punch days pair each half.
         $pairs = ($times['AM_OUT'] || $times['PM_IN'])
             ? [['AM_IN', 'AM_OUT', 'Morning'], ['PM_IN', 'PM_OUT', 'Afternoon']]

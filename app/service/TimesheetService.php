@@ -67,7 +67,9 @@ class TimesheetService {
      * - Normal day = 2 punches (TIME IN = AM_IN, TIME OUT = PM_OUT); lunch is deducted automatically, unpaid.
      *   A day with only a TIME IN (no TIME OUT) counts 0 hours until the punch is corrected.
      * - Four-punch days (AM_OUT/PM_IN present, older data): a half with a missing IN or OUT counts 0 hours.
-     * - OT = OT_OUT − OT_IN. Night diff = any worked minutes between 22:00 and 06:00.
+     * - OT (two-punch day) = minutes from the scheduled end to TIME OUT, exact minutes, no approval needed.
+     *   Four-punch days (older data): OT = OT_OUT − OT_IN. Coming in early is never OT.
+     * - Night diff = any worked minutes between 22:00 and 06:00.
      *
      * @param array<string,string> $times punch_type => 'Y-m-d H:i:s'
      */
@@ -98,6 +100,7 @@ class TimesheetService {
             $undertime = $this->earlyMinutes($punch('AM_OUT'), $lunchStart)
                        + $this->earlyMinutes($punch('PM_OUT'), $workEnd);
             $worked    = [$am, $pm, $ot];
+            $otMinutes = $this->durationMinutes($ot);
         } else {
             [$span, $late] = $this->chargeLate([$punch('AM_IN'), $punch('PM_OUT')], $workStart, $workEnd, $threshold);
             $regularMinutes = $this->overlapMinutes($span, $workStart, $workEnd)
@@ -107,6 +110,10 @@ class TimesheetService {
                 ? $this->minutesBetween($out, $workEnd) - $this->overlapMinutes([$out, $workEnd], $lunchStart, $lunchEnd)
                 : 0;
             $worked = [$span, $ot];
+            // Owner's rule: still working past the end of the schedule = OT, counted in exact minutes
+            // (out at 5:45 → 45 min). Separate OT IN/OUT punches (older data) are added on top.
+            $otMinutes = ($span[0] && $out && $out > $workEnd ? $this->minutesBetween(max($span[0], $workEnd), $out) : 0)
+                       + $this->durationMinutes($ot);
         }
 
         $regularMinutes = max(0, min($regularMinutes, (int) round($this->settings->getRegularHours() * 60)));
@@ -120,7 +127,7 @@ class TimesheetService {
             'employee_id'       => $employeeId,
             'work_date'         => $date,
             'regular_hours'     => round($regularMinutes / 60, 2),
-            'overtime_hours'    => round($this->durationMinutes($ot) / 60, 2),
+            'overtime_hours'    => round($otMinutes / 60, 2),
             'night_diff_hours'  => round($nightMinutes / 60, 2),
             'late_minutes'      => $late,
             'undertime_minutes' => $undertime,
