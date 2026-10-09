@@ -1,1 +1,3 @@
-uploads/
+uploads/*
+!uploads/.htaccess
+app/config/env.php

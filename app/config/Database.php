@@ -17,8 +17,9 @@ class Database {
         } else {
             // ---- PRODUCTION ----
             $host    = getenv('DB_HOST') ?: 'localhost';
-            $db      = getenv('DB_NAME') ?: 'u822796852_coronacion_svc';
-            $user    = getenv('DB_USER') ?: 'u822796852_app';
+            // From app/config/env.php. No fallback: payroll must not land in another site's database.
+            $db      = getenv('DB_NAME') ?: '';
+            $user    = getenv('DB_USER') ?: '';
             $pass    = getenv('DB_PASS') ?: '';
             $charset = 'utf8mb4';
         }

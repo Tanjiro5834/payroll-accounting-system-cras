@@ -1,8 +1,48 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
+// Server settings live in app/config/env.php (git-ignored; copy env.example.php).
+$envFile = __DIR__ . '/app/config/env.php';
+if (is_file($envFile)) {
+    foreach ((array) require $envFile as $key => $value) {
+        putenv("{$key}={$value}");
+    }
+}
+
+// Errors are logged, never shown to users, unless APP_DEBUG=1 (or running on localhost).
+$host    = strtolower(explode(':', $_SERVER['HTTP_HOST'] ?? '')[0]);
+$isLocal = getenv('APP_ENV') === 'local'
+        || (getenv('APP_ENV') !== 'production' && in_array($host, ['localhost', '127.0.0.1', '::1'], true));
+$showErrors = $isLocal || getenv('APP_DEBUG') === '1';
 error_reporting(E_ALL);
+ini_set('log_errors', '1');
+ini_set('display_errors', $showErrors ? '1' : '0');
+
+// Anything not caught by a controller: log the details, show the user a plain message.
+if (!$showErrors) {
+    set_exception_handler(function (Throwable $e): void {
+        error_log('Uncaught ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        if (!headers_sent()) {
+            http_response_code(500);
+        }
+        if (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')) {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Something went wrong. Please try again.']);
+        } else {
+            echo '<!doctype html><meta charset="utf-8"><title>Error</title><p style="font-family:sans-serif;padding:2rem">Something went wrong. Please try again, or tell the office if it keeps happening.</p>';
+        }
+    });
+}
+
+$isHttps = ($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+ini_set('session.use_strict_mode', '1');
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'secure'   => $isHttps,   // cookie only travels over https on the live site
+    'httponly' => true,       // JavaScript can't read the session cookie
+    'samesite' => 'Lax',
+]);
 session_start();
 
 use App\Config\App;

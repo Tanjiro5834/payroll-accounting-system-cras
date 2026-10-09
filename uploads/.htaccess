@@ -1,0 +1,5 @@
+# Uploaded photos only: never run scripts from here, even if one gets uploaded.
+Options -Indexes
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|svg)$">
+    Require all denied
+</FilesMatch>

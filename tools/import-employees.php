@@ -16,7 +16,14 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-putenv('APP_ENV=local');
+$envFile = dirname(__DIR__) . '/app/config/env.php';
+if (is_file($envFile)) {
+    foreach ((array) require $envFile as $key => $value) {
+        putenv("{$key}={$value}");
+    }
+} else {
+    putenv('APP_ENV=local'); // XAMPP
+}
 date_default_timezone_set('Asia/Manila');
 
 spl_autoload_register(function (string $class): void {

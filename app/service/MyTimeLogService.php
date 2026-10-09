@@ -165,7 +165,7 @@ class MyTimeLogService {
                 : "{$label}: in at {$this->clock($times[$type])}, {$this->duration($late)} late → " . $this->hours($this->charged($late)) . ' deducted.';
         }
 
-        if ($isToday) {
+        if ($isToday && !$times['PM_OUT']) {
             $notes[] = 'Today is still in progress. Hours are final after your last time-out.';
             return $notes;
         }
