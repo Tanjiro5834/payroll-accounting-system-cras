@@ -18,7 +18,7 @@ class PayrollService {
     private const PAY_FREQUENCIES = ['weekly', 'kinsenas', 'monthly'];
 
     private const HOURS_PER_MONTH = '208.67';       // DOLE convention for monthly → hourly
-    private const OT_MULTIPLIER   = '1.25';
+    private const OT_MULTIPLIER   = '1.00';
     // Night diff is a 10% PREMIUM on top of the hours already paid as regular/OT (Labor Code Art. 86),
     // not 110% of the rate, which would pay those hours twice.
     private const NIGHT_MULTIPLIER = '0.10';

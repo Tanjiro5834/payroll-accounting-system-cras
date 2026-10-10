@@ -172,6 +172,13 @@ class EmployeeRepository extends BaseRepository {
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
+    public function findFlexiIds(): array {
+        $stmt = $this->db->prepare("SELECT id FROM employees WHERE flexi_schedule = 1");
+        $stmt->execute();
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     private function hydrateAll(array $rows): array {
         return array_map(fn(array $row) => Employee::fromArray($row), $rows);
     }

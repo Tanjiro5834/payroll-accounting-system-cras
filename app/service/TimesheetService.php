@@ -4,6 +4,7 @@ namespace App\Service;
 use App\Entity\TimePunch;
 use App\Repository\DailySummaryRepository;
 use App\Repository\TimePunchRepository;
+use App\Repository\EmployeeRepository;
 use DateTimeImmutable;
 
 // Turns raw punches into daily_summary rows (hours, late, undertime) — the input payroll reads.
@@ -11,6 +12,8 @@ class TimesheetService {
     private TimePunchRepository $punches;
     private DailySummaryRepository $summaries;
     private SystemSettingService $settings;
+    private ?EmployeeRepository $employees = null;
+    private ?array $flexi = null;
 
     public function __construct(
         ?TimePunchRepository $punches = null,
@@ -20,6 +23,15 @@ class TimesheetService {
         $this->punches   = $punches   ?? new TimePunchRepository();
         $this->summaries = $summaries ?? new DailySummaryRepository();
         $this->settings  = $settings  ?? new SystemSettingService();
+    }
+
+    
+    public function isFlexi(int $employeeId): bool {
+        if ($this->flexi === null) {
+            $this->employees ??= new EmployeeRepository();
+            $this->flexi = array_fill_keys($this->employees->findFlexiIds(), true);
+        }
+        return isset($this->flexi[$employeeId]);
     }
 
     // Rebuilds daily_summary for every employee-day with punches in the range.
@@ -86,12 +98,25 @@ class TimesheetService {
 
         $ot = [$punch('OT_IN'), $punch('OT_OUT')];
 
-        // Two-punch day (the normal case, like the old bundy): TIME IN = AM_IN, TIME OUT = PM_OUT, no lunch punches.
-        // Lunch is always unpaid, so it is cut out of the span automatically.
-        // Days that do have AM_OUT / PM_IN (older data) keep the four-punch calculation.
+        // Two-punch day: TIME IN = AM_IN, TIME OUT = PM_OUT, lunch auto-deducted.
+        // Days with AM_OUT / PM_IN (older data) keep the four-punch calculation.
         $fourPunch = isset($times['AM_OUT']) || isset($times['PM_IN']);
+        $out = $punch('PM_OUT');
+        if (!$out && isset($times['AM_IN']) && !$fourPunch && $date < date('Y-m-d')) {
+            $out = $workEnd; // forgot to time out → out at 5:00 PM (today stays open until the day ends)
+        }
 
-        if ($fourPunch) {
+        if (!$fourPunch && $this->isFlexi($employeeId)) {
+            // Flexible schedule: any Time In, full day = 8 h on the clock, OT after that.
+            $in        = $punch('AM_IN');
+            $full      = (int) round($this->settings->getRegularHours() * 60);
+            $span      = ($in && $out) ? $this->minutesBetween($in, $out) : 0;
+            $regularMinutes = min($span, $full);
+            $otMinutes = max(0, $span - $full);
+            $undertime = ($in && $out) ? max(0, $full - $span) : 0;
+            $late      = 0;
+            $worked    = [[$in, $out]];
+        } elseif ($fourPunch) {
             [$am, $amLate] = $this->chargeLate([$punch('AM_IN'), $punch('AM_OUT')], $workStart, $lunchStart, $threshold);
             [$pm, $pmLate] = $this->chargeLate([$punch('PM_IN'), $punch('PM_OUT')], $lunchEnd, $workEnd, $threshold);
             $regularMinutes = $this->overlapMinutes($am, $workStart, $lunchStart)
@@ -102,16 +127,14 @@ class TimesheetService {
             $worked    = [$am, $pm, $ot];
             $otMinutes = $this->durationMinutes($ot);
         } else {
-            [$span, $late] = $this->chargeLate([$punch('AM_IN'), $punch('PM_OUT')], $workStart, $workEnd, $threshold);
+            [$span, $late] = $this->chargeLate([$punch('AM_IN'), $out], $workStart, $workEnd, $threshold);
             $regularMinutes = $this->overlapMinutes($span, $workStart, $workEnd)
                             - $this->overlapMinutes($span, $lunchStart, $lunchEnd);
-            $out = $punch('PM_OUT');
             $undertime = $out && $out < $workEnd
                 ? $this->minutesBetween($out, $workEnd) - $this->overlapMinutes([$out, $workEnd], $lunchStart, $lunchEnd)
                 : 0;
             $worked = [$span, $ot];
-            // Owner's rule: still working past the end of the schedule = OT, counted in exact minutes
-            // (out at 5:45 → 45 min). Separate OT IN/OUT punches (older data) are added on top.
+            // OT = past the scheduled end, exact minutes (out at 5:45 → 45 min).
             $otMinutes = ($span[0] && $out && $out > $workEnd ? $this->minutesBetween(max($span[0], $workEnd), $out) : 0)
                        + $this->durationMinutes($ot);
         }
@@ -160,7 +183,7 @@ class TimesheetService {
             return [[$scheduled, $out], 0];
         }
 
-        $charged = min(max(1, intdiv($late, 60)) * 60, $this->minutesBetween($scheduled, $halfEnd));
+        $charged = min(max(1, (int) ceil(($late - $threshold) / 60)) * 60, $this->minutesBetween($scheduled, $halfEnd));
         return [[$scheduled->modify("+{$charged} minutes"), $out], $charged];
     }
 

@@ -59,6 +59,8 @@ class MyTimeLogService {
             'lunch_end'   => $this->settings->getLunchEnd(),
             'work_end'    => $this->settings->getWorkEnd(),
             'threshold'   => $this->settings->getLateThreshold(),
+            'flexi'       => $this->timesheet->isFlexi($employeeId),
+            'full_day'    => (int) round($this->settings->getRegularHours() * 60),
         ];
 
         if ($last < $first) {
@@ -152,6 +154,11 @@ class MyTimeLogService {
     // Plain-language reasons behind the numbers, e.g. "In at 8:20, 20 min late → 1 hr deducted".
     private function notes(array $times, int $lateCharged, int $undertime, array $schedule, bool $isToday): array {
         $notes = [];
+        $twoPunch = !$times['AM_OUT'] && !$times['PM_IN'];
+        if (!empty($schedule['flexi']) && $twoPunch) {
+            return $this->flexiNotes($times, $undertime, $schedule, $isToday);
+        }
+
         foreach ([['AM_IN', 'work_start', 'Time in'], ['PM_IN', 'lunch_end', 'After lunch']] as [$type, $key, $label]) {
             if (!$times[$type]) {
                 continue;
@@ -162,20 +169,23 @@ class MyTimeLogService {
             }
             $notes[] = $late < $schedule['threshold']
                 ? "{$label}: in at {$this->clock($times[$type])}, {$late} min late. Under {$schedule['threshold']} min, so not counted."
-                : "{$label}: in at {$this->clock($times[$type])}, {$this->duration($late)} late → " . $this->hours($this->charged($late)) . ' deducted.';
+                : "{$label}: in at {$this->clock($times[$type])}, {$this->duration($late)} late → " . $this->hours($this->charged($late, $schedule['threshold'])) . ' deducted.';
         }
 
         if ($isToday && !$times['PM_OUT']) {
             $notes[] = 'Today is still in progress. Hours are final after your last time-out.';
             return $notes;
         }
+
         if ($undertime > 0) {
             $notes[] = "Left {$this->duration($undertime)} before the end of the schedule (unpaid).";
         }
+
         $otAfter = $times['PM_OUT'] ? $this->minutesBetween($schedule['work_end'], $times['PM_OUT']) : 0;
         if ($otAfter > 0 && !$times['AM_OUT'] && !$times['PM_IN']) {
             $notes[] = "Out at {$this->clock($times['PM_OUT'])}: {$this->duration($otAfter)} overtime.";
         }
+
         // Two-punch days pair TIME IN with TIME OUT; older four-punch days pair each half.
         $pairs = ($times['AM_OUT'] || $times['PM_IN'])
             ? [['AM_IN', 'AM_OUT', 'Morning'], ['PM_IN', 'PM_OUT', 'Afternoon']]
@@ -183,20 +193,56 @@ class MyTimeLogService {
         $pairs[] = ['OT_IN', 'OT_OUT', 'Overtime'];
         foreach ($pairs as [$in, $out, $label]) {
             if ($times[$in] xor $times[$out]) {
-                $notes[] = "{$label}: " . ($times[$in] ? 'no time-out' : 'no time-in') . ' recorded, so it counts 0 hours until corrected.';
+                $notes[] = $label === 'Day' && $times[$in]
+                    ? 'No time-out recorded, so it counts as out at ' . $this->clock(substr($schedule['work_end'], 0, 5)) . '. Tell the office if you left later or earlier.'
+                    : "{$label}: " . ($times[$in] ? 'no time-out' : 'no time-in') . ' recorded, so it counts 0 hours until corrected.';
             }
         }
+
         if ($times['AM_IN'] && $times['PM_OUT'] && !$times['AM_OUT'] && !$times['PM_IN']) {
             $notes[] = 'Lunch (1 hr) is unpaid and deducted automatically.';
         }
+
         if ($lateCharged === 0 && !$notes) {
             $notes[] = 'On time.';
+        }
+
+        return $notes;
+    }
+
+    private function flexiNotes(array $times, int $undertime, array $schedule, bool $isToday): array {
+        $in = $times['AM_IN'];
+        if (!$in) {
+            return ['No time-in recorded, so it counts 0 hours until corrected.'];
+        }
+        
+        $due = $this->addMinutes($in, $schedule['full_day']);
+        $notes = ["Flexible schedule: in at {$this->clock($in)}, full day once out at {$this->clock($due)}."];
+        if (!$times['PM_OUT']) {
+            $notes[] = $isToday
+                ? 'Today is still in progress. Hours are final after your time-out.'
+                : 'No time-out recorded, so it counts as out at ' . $this->clock(substr($schedule['work_end'], 0, 5)) . '. Tell the office if you left later or earlier.';
+            
+            return $notes;
+        }
+        
+        $past = $this->minutesBetween($due, $times['PM_OUT']);
+        if ($past > 0) {
+            $notes[] = "Out at {$this->clock($times['PM_OUT'])}: {$this->duration($past)} overtime.";
+        } elseif ($undertime > 0) {
+            $notes[] = "Out at {$this->clock($times['PM_OUT'])}: {$this->duration($undertime)} short of a full day (unpaid).";
         }
         return $notes;
     }
 
-    private function charged(int $late): int {
-        return max(1, intdiv($late, 60)) * 60;
+    private function addMinutes(string $hm, int $minutes): string {
+        [$h, $m] = array_map('intval', explode(':', $hm));
+        $t = $h * 60 + $m + $minutes;
+        return sprintf('%02d:%02d', intdiv($t, 60) % 24, $t % 60);
+    }
+
+    private function charged(int $late, int $threshold): int {
+        return TimesheetService::lateHours($late, $threshold) * 60;
     }
 
     private function totals(array $days): array {
