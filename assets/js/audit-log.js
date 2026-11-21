@@ -22,6 +22,10 @@
     SETTING: "bg-sky-100 text-sky-800",
     PUNCH_REVERSE: "bg-red-100 text-red-800",
   };
+
+  const MONTHS = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+
   const PUNCH_LABELS = { AM_IN: "Time In", PM_OUT: "Time Out", AM_OUT: "Lunch Out", PM_IN: "Lunch In" };
 
   let rows = [];
@@ -39,10 +43,14 @@
 
   function fmtTs(ts) {
     const [date, time] = String(ts || "").split(" ");
-    if (!time) return ts || "";
-    const [h, m, s] = time.split(":").map(Number);
-    return date + " " + String(h % 12 || 12).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" +
-      String(s || 0).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
+    const [y, mo, d] = (date || "").split("-").map(Number);
+    if (!y || !mo || !d) return ts || "";
+    let out = MONTHS[mo - 1] + " " + d + ", " + y;
+    if (time) {
+      const [h, m] = time.split(":").map(Number);
+      out += " " + (h % 12 || 12) + ":" + String(m).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
+    }
+    return out;
   }
 
   function parseDetails(raw) {
