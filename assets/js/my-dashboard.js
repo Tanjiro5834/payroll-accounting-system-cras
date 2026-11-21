@@ -55,7 +55,7 @@
       : '<span class="text-white font-bold ' + (textCls || "text-lg") + '">' + esc(initials(name)) + "</span>";
   }
 
-  const FREQ = { weekly: "Weekly", kinsenas: "Kinsenas", monthly: "Monthly" };
+  const FREQ = { weekly: "Weekly", biweekly: "Bi-weekly", kinsenas: "Kinsenas", monthly: "Monthly" };
   const STATUS = {
     paid: ["Released", "bg-emerald-100 text-emerald-800"],
     approved: ["Approved", "bg-amber-100 text-amber-800"],
@@ -476,7 +476,20 @@
     document.querySelectorAll("#payslip-modal:not(.hidden), #profile-modal:not(.hidden)").forEach(closeModal);
   });
 
-  $("open-profile").addEventListener("click", () => openModal("profile-modal"));
+  // "Edit profile" lives in the sidebar; on this page it opens the modal instead of reloading.
+  const editProfileLink = document.getElementById("sidebar-edit-profile");
+  if (editProfileLink) {
+    editProfileLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      const overlay = document.getElementById("drawer-overlay");
+      if (overlay && !overlay.classList.contains("pointer-events-none")) overlay.click();
+      openModal("profile-modal");
+    });
+  }
+  if (location.hash === "#edit-profile") {
+    history.replaceState(null, "", location.pathname + location.search);
+    openModal("profile-modal");
+  }
 
   const MAX_PHOTO = 5 * 1024 * 1024;
   $("photo-input").addEventListener("change", async function () {

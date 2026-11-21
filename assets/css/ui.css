@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap');
 :root {
     --ink:        #0B1220;    --ink-900:    #111A2E;
     --ink-800:    #1B2740;
@@ -179,4 +180,12 @@ body.punch-theme #live-time {
     button:active, a.ui-btn:active, .ui-btn:active {
         transform: none !important;
     }
+}
+
+/* Global font override: wins over each page's tailwind.config */
+html, body, .font-sans {
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important;
+}
+.font-mono, .num, [data-num], table td.num, table th.num {
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
 }

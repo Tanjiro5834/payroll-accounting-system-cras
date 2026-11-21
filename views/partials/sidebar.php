@@ -45,10 +45,14 @@ if ($role === 'employee') {
 } elseif (!empty($user['employee_id'])) {
     array_splice($sections['Main'], 1, 0, [$myDashboard]);
 } else {
-    // Not linked to an employee record: nothing of their own to show.
     $sections['Main'] = array_values(array_filter($sections['Main'], fn($item) => $item[0] !== 'my-time-logs'));
 }
 
+$editProfile = [null, 'Edit profile', ['M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10'],
+                'index.php?page=my-dashboard#edit-profile', 'sidebar-edit-profile'];
+if ($role === 'employee' || !empty($user['employee_id'])) {
+    $sections['Main'][] = $editProfile;
+}
 $base    = 'group flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm min-h-[44px]';
 $onCls   = "$base bg-coolant text-white shadow-sm";
 $offCls  = "$base text-slate-100 hover:bg-white/10 hover:text-white transition-colors";
@@ -83,9 +87,13 @@ $icon = static function (array $paths, string $cls) use ($e): string {
         <?php foreach ($sections as $heading => $items): ?>
             <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400"><?= $e($heading) ?></p>
             <ul class="space-y-1 mb-5">
-                <?php foreach ($items as [$route, $label, $paths]): ?>
+                <?php foreach ($items as $item): [$route, $label, $paths] = $item; ?>
                     <li>
-                    <?php if ($route === null): ?>
+                    <?php if (isset($item[3])): ?>
+                        <a href="<?= $e($item[3]) ?>" id="<?= $e($item[4] ?? '') ?>" class="<?= $offCls ?>">
+                            <?= $icon($paths, 'text-slate-400 group-hover:text-frost transition-colors') ?><?= $e($label) ?>
+                        </a>
+                    <?php elseif ($route === null): ?>
                         <span class="<?= $soonCls ?>" aria-disabled="true" title="Coming soon">
                             <?= $icon($paths, 'text-slate-600') ?><?= $e($label) ?>
                         </span>

@@ -37,92 +37,137 @@
         };
     </script>
 </head>
-<body class="font-sans bg-ink-50 text-ink min-h-screen flex flex-col antialiased">
+<body class="font-sans bg-ink-50 text-ink min-h-screen antialiased">
 
-    <main class="flex-1 flex items-center justify-center px-4 py-12">
-        <div class="w-full max-w-md page-enter">
+    <div class="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
 
-            <div class="text-center mb-8">
-                <img src="assets/images/coronacion-logo.png" 
-                alt="Coronacion Logo" 
-                class="mx-auto mb-4 w-16 h-16 object-contain">
-                <h1 class="text-2xl font-bold tracking-tight text-ink">Coronacion</h1>
-                <p class="text-sm text-slate-500 mt-1">Refrigeration &amp; Airconditioning Services</p>
+        <!-- Brand panel (desktop) -->
+        <aside class="relative hidden lg:flex flex-col justify-between overflow-hidden bg-ink text-white p-12 xl:p-16">
+            <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+                <div class="absolute -top-40 -left-32 w-[34rem] h-[34rem] rounded-full bg-coolant/40 blur-3xl"></div>
+                <div class="absolute -bottom-48 -right-24 w-[30rem] h-[30rem] rounded-full bg-frost/20 blur-3xl"></div>
+                <svg class="absolute inset-0 w-full h-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+                            <path d="M44 0H0V44" fill="none" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)"/>
+                </svg>
+                <svg class="absolute right-[-6rem] top-1/2 -translate-y-1/2 w-[28rem] h-[28rem] text-frost/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.6" stroke-linecap="round">
+                    <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1M12 2l-2 2m2-2 2 2M12 22l-2-2m2 2 2-2M2 12l2-2m-2 2 2 2M22 12l-2-2m2 2-2 2"/>
+                </svg>
             </div>
 
-            <div class="bg-white rounded-2xl border border-line shadow-sm p-6 sm:p-8">
-                <h2 class="text-xl font-bold tracking-tight mb-1">Sign in</h2>
-                <p class="text-sm text-slate-500 mb-6">Enter your credentials to access the timekeeping system.</p>
+            <div class="relative flex items-center gap-3">
+                <img src="assets/images/coronacion-logo.png" alt="" class="w-11 h-11 object-contain rounded-full bg-white/95 p-0.5">
+                <p class="text-[15px] leading-tight whitespace-nowrap">
+                    <span class="font-extrabold tracking-tight">Coronacion</span>
+                    <span class="text-white/60 font-medium">Refrigeration &amp; Airconditioning Services</span>
+                </p>
+            </div>
 
-                <form id="login-form" method="POST" action="index.php?page=login&action=login" class="space-y-5">
-                    <div>
-                        <label for="username" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Username</label>
-                        <input
-                            type="text"
-                            id="username"
-                            name="username"
-                            autocomplete="username"
-                            required
-                            class="w-full px-3.5 py-3 rounded-xl border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
-                            placeholder="e.g. jdelacruz"
-                        >
-                    </div>
+            <div class="relative max-w-md">
+                <p class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-frost text-xs font-semibold tracking-wide">
+                    <span class="w-1.5 h-1.5 rounded-full bg-frost animate-pulse"></span>
+                    Timekeeping &amp; Payroll
+                </p>
+                <h1 class="mt-5 text-4xl xl:text-5xl font-extrabold tracking-tight leading-[1.05]">
+                    Clock in.<br>Get paid <span class="text-frost">right.</span>
+                </h1>
+                <p class="mt-4 text-white/60 text-[15px] leading-relaxed">
+                    Punches, overtime, holidays and payslips in one place for the whole Coronacion team.
+                </p>
+            </div>
 
-                    <div>
-                        <label for="password" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Password</label>
-                        <div class="relative">
-                            <input
-                                type="password"
-                                id="password"
-                                name="password"
-                                autocomplete="current-password"
-                                required
-                                class="w-full px-3.5 py-3 pr-12 rounded-xl border border-line bg-white text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]"
-                                placeholder="••••••••"
-                            >
-                            <button
-                                type="button"
-                                id="toggle-password"
-                                aria-label="Show password"
-                                class="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-slate-400 hover:text-coolant focus:outline-none focus:ring-2 focus:ring-frost rounded-r-xl transition-colors"
-                            >
-                                <svg id="icon-eye" class="icon-crossfade w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                </svg>
-                                <svg id="icon-eye-off" class="icon-crossfade w-5 h-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
-                                </svg>
-                            </button>
+            <div class="relative flex items-end justify-between gap-6">
+                <div>
+                    <p id="brand-clock" class="font-mono text-3xl font-semibold tracking-tight tabular-nums">--:--</p>
+                    <p id="brand-date" class="text-white/50 text-sm mt-1">&nbsp;</p>
+                </div>
+                <p class="text-white/40 text-xs">Imus, Cavite</p>
+            </div>
+        </aside>
+
+        <!-- Form panel -->
+        <main class="flex flex-col min-w-0 overflow-x-hidden px-5 sm:px-10 py-8 sm:py-12">
+            <div class="lg:hidden flex items-center gap-2.5 mb-10">
+                <img src="assets/images/coronacion-logo.png" alt="" class="w-9 h-9 object-contain shrink-0">
+                <p class="leading-tight whitespace-nowrap text-[clamp(10px,2.9vw,15px)] min-w-0">
+                    <span class="font-extrabold tracking-tight">Coronacion</span>
+                    <span class="text-slate-500 font-medium">Refrigeration &amp; Airconditioning Services</span>
+                </p>
+            </div>
+
+            <div class="flex-1 flex items-center justify-center">
+                <div class="w-full max-w-sm page-enter">
+                    <h2 class="text-3xl font-extrabold tracking-tight">Welcome back</h2>
+                    <p class="text-sm text-slate-500 mt-2 mb-8">Sign in with your username and password.</p>
+
+                    <form id="login-form" method="POST" action="index.php?page=login&action=login" class="space-y-5">
+                        <div>
+                            <label for="username" class="block text-sm font-semibold text-ink-700 mb-1.5">Username</label>
+                            <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required
+                                class="w-full px-4 py-3 rounded-xl border border-line bg-white text-ink text-[15px] placeholder-slate-400 shadow-sm focus:outline-none focus:ring-4 focus:ring-frost/30 focus:border-coolant transition min-h-[48px]"
+                                placeholder="e.g. jdelacruz">
                         </div>
-                    </div>
 
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
-                            <input
-                                type="checkbox"
-                                id="remember"
-                                name="remember"
-                                class="w-4 h-4 rounded border-line text-coolant focus:ring-frost"
-                            >
-                            <span class="text-sm text-slate-600">Remember me</span>
-                        </label>
-                        <a href="#" class="text-sm font-medium text-coolant hover:text-coolant-hover transition-colors">Forgot password?</a>
-                    </div>
+                        <div>
+                            <label for="password" class="block text-sm font-semibold text-ink-700 mb-1.5">Password</label>
+                            <div class="relative">
+                                <input type="password" id="password" name="password" autocomplete="current-password" required
+                                    class="w-full px-4 py-3 pr-12 rounded-xl border border-line bg-white text-ink text-[15px] placeholder-slate-400 shadow-sm focus:outline-none focus:ring-4 focus:ring-frost/30 focus:border-coolant transition min-h-[48px]"
+                                    placeholder="••••••••">
+                                <button type="button" id="toggle-password" aria-label="Show password"
+                                    class="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-slate-400 hover:text-coolant focus:outline-none focus:ring-2 focus:ring-frost rounded-r-xl transition-colors">
+                                    <svg id="icon-eye" class="icon-crossfade w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    </svg>
+                                    <svg id="icon-eye-off" class="icon-crossfade w-5 h-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
 
-                    <button
-                        type="submit"
-                        class="ui-btn w-full min-h-[44px] py-3 px-4 bg-coolant hover:bg-coolant-hover text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-frost focus:ring-offset-2 transition-all duration-150"
-                    >
-                        Sign in
-                    </button>
-                </form>
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
+                                <input type="checkbox" id="remember" name="remember" class="w-4 h-4 rounded border-line text-coolant focus:ring-frost">
+                                <span class="text-sm text-slate-600">Remember me</span>
+                            </label>
+                            <a href="#" class="text-sm font-semibold text-coolant hover:text-coolant-hover transition-colors">Forgot password?</a>
+                        </div>
+
+                        <button type="submit"
+                            class="ui-btn group w-full min-h-[48px] py-3 px-4 bg-coolant hover:bg-coolant-hover text-white text-[15px] font-bold rounded-xl shadow-lg shadow-coolant/25 hover:shadow-xl hover:shadow-coolant/30 focus:outline-none focus:ring-4 focus:ring-frost/40 transition-all duration-150 inline-flex items-center justify-center gap-2">
+                            Sign in
+                            <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
             </div>
 
-            <p class="text-center text-xs text-slate-400 mt-6">&copy; 2026 Coronacion Services. Internal use only.</p>
-        </div>
-    </main>
+            <p class="text-center lg:text-left text-xs text-slate-400 mt-10">&copy; 2026 Coronacion Services. Internal use only.</p>
+        </main>
+    </div>
 
+    <script>
+        (function () {
+            const clock = document.getElementById("brand-clock");
+            const date = document.getElementById("brand-date");
+            if (!clock) return;
+            function tick() {
+                const now = new Date();
+                clock.textContent = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
+                date.textContent = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
+            }
+            tick();
+            setInterval(tick, 15000);
+        })();
+    </script>
     <script src="assets/js/login.js"></script>
     <script src="assets/js/ui.js"></script>
 </body>
