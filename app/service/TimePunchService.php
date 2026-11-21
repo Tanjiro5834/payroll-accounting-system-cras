@@ -32,15 +32,18 @@ class TimePunchService {
     private TimePunchRepository $repository;
     private AuditTrailRepository $audit;
     private SundayDutyService $sundayDuty;
+    private OfficeGeofenceService $geofence;
 
     public function __construct(
         ?TimePunchRepository $repository = null,
         ?AuditTrailRepository $audit = null,
-        ?SundayDutyService $sundayDuty = null
+        ?SundayDutyService $sundayDuty = null,
+        ?OfficeGeofenceService $geofence = null
     ) {
         $this->repository = $repository ?? new TimePunchRepository();
         $this->audit      = $audit      ?? new AuditTrailRepository();
         $this->sundayDuty = $sundayDuty ?? new SundayDutyService();
+        $this->geofence   = $geofence   ?? new OfficeGeofenceService();
     }
 
     public function record(int $employeeId, string $punchType, array $locationData = []): int {
@@ -58,6 +61,12 @@ class TimePunchService {
         if ($error !== null) {
             throw new DomainException($error);
         }
+
+        $this->geofence->assertInsideOffice(
+            $locationData['gps_lat']      ?? null,
+            $locationData['gps_lng']      ?? null,
+            $locationData['gps_accuracy'] ?? null
+        );
 
         $punch = TimePunch::fromArray([
             'employee_id'        => $employeeId,

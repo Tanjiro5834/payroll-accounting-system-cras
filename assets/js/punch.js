@@ -246,6 +246,8 @@
     btn.classList.add("opacity-70", "cursor-wait");
 
     try {
+      gpsLabel.textContent = "Getting your location...";
+      await captureGPS();
       const status = await api.post("punch", "store", {
         body: Object.assign(
           { employee_id: document.getElementById("employee_id").value, punch_type: pt.key.toUpperCase() },
@@ -264,28 +266,34 @@
   const gpsLabel = document.getElementById("gps-label");
 
   function captureGPS() {
-    if (!navigator.geolocation) {
-      gpsDot.className = "w-2 h-2 rounded-full bg-slate-300";
-      gpsLabel.textContent = "Location not supported";
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      function (pos) {
-        const c = pos.coords;
-        document.getElementById("gps_lat").value = c.latitude;
-        document.getElementById("gps_lng").value = c.longitude;
-        document.getElementById("gps_accuracy").value = c.accuracy;
-        gpsDot.className = "w-2 h-2 rounded-full bg-emerald-500";
-        gpsLabel.textContent =
-          "Location captured (±" + Math.round(c.accuracy) + "m)";
-      },
-      function () {
-        gpsDot.className = "w-2 h-2 rounded-full bg-amber-400";
-        gpsLabel.textContent = "Location unavailable — punching allowed";
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
-    );
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) {
+        gpsDot.className = "w-2 h-2 rounded-full bg-slate-300";
+        gpsLabel.textContent = "Location not supported on this phone";
+        resolve();
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          const c = pos.coords;
+          document.getElementById("gps_lat").value = c.latitude;
+          document.getElementById("gps_lng").value = c.longitude;
+          document.getElementById("gps_accuracy").value = Math.round(c.accuracy);
+          gpsDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+          gpsLabel.textContent = "Location captured (±" + Math.round(c.accuracy) + "m)";
+          resolve();
+        },
+        function () {
+          ["gps_lat", "gps_lng", "gps_accuracy"].forEach(function (id) {
+            document.getElementById(id).value = "";
+          });
+          gpsDot.className = "w-2 h-2 rounded-full bg-red-500";
+          gpsLabel.textContent = "Location blocked — allow location to punch";
+          resolve();
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+    });
   }
 
   function computeFingerprint() {
