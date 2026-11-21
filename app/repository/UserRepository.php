@@ -46,7 +46,8 @@ class UserRepository extends BaseRepository {
     public function findByUsername(string $username): ?array {
         $stmt = $this->db->prepare(
             "SELECT u.id, u.username, u.password_hash, u.role, u.employee_id, u.last_login,
-                    u.is_active, u.created_at, u.updated_at, e.full_name
+                    u.is_active, u.created_at, u.updated_at,
+                    COALESCE(e.full_name, u.display_name) AS full_name
              FROM users u
              LEFT JOIN employees e ON e.id = u.employee_id
              WHERE u.username = ? LIMIT 1"
