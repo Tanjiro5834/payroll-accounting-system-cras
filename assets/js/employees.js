@@ -7,7 +7,7 @@
   const iconMenu = document.getElementById("icon-menu");
   const iconClose = document.getElementById("icon-close");
 
-  const FREQ_LABELS = { weekly: "Weekly", kinsenas: "Kinsenas", monthly: "Monthly" };
+  const FREQ_LABELS = { weekly: "Weekly", biweekly: "Bi-weekly", kinsenas: "Kinsenas", monthly: "Monthly" };
   function freqLabel(f) {
     return FREQ_LABELS[f] || f;
   }

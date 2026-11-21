@@ -15,7 +15,7 @@ class EmployeeService {
     private const TIMEZONE = 'Asia/Manila';
 
     private const ALLOWED_ROLES = ['owner', 'admin', 'employee'];
-    private const ALLOWED_PAY_FREQUENCIES = ['weekly', 'kinsenas', 'monthly'];
+    private const ALLOWED_PAY_FREQUENCIES = ['weekly', 'biweekly', 'kinsenas', 'monthly'];
 
     private const MAX_NAME_LENGTH = 100;
     private const MAX_ROLE_LENGTH = 50; 

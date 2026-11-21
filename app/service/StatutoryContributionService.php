@@ -111,6 +111,7 @@ class StatutoryContributionService {
         return match ($frequency) {
             'monthly'  => [1, 1],
             'kinsenas' => [2, $day <= 15 ? 1 : 2],
+            'biweekly' => (new PayCycleService())->biweeklySlot($periodEnd),
             default    => (function () use ($date, $day) {
                 $index   = intdiv($day - 1, 7) + 1;
                 $paydays = $index + intdiv((int) $date->format('t') - $day, 7);

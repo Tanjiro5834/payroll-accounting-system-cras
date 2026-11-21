@@ -307,6 +307,13 @@ class MyDashboardService {
             case 'weekly':
                 $days = (6 - (int) $today->format('w') + 7) % 7; // 6 = Saturday
                 return $today->modify("+{$days} days")->format('Y-m-d');
+            case 'biweekly':
+                try {
+                    $cycles = new PayCycleService($this->settings);
+                    return ($cycles->isBiweeklyPayday($today) ? $today : $cycles->nextBiweeklyPayday($today))->format('Y-m-d');
+                } catch (DomainException) {
+                    return '';   // biweekly_anchor not set yet
+                }
             case 'kinsenas':
                 return (int) $today->format('j') <= 15
                     ? $today->format('Y-m-15')

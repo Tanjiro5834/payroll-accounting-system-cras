@@ -15,7 +15,7 @@ use InvalidArgumentException;
 class PayrollService {
     private const TIMEZONE = 'Asia/Manila';
 
-    private const PAY_FREQUENCIES = ['weekly', 'kinsenas', 'monthly'];
+    private const PAY_FREQUENCIES = ['weekly', 'biweekly', 'kinsenas', 'monthly'];
 
     private const HOURS_PER_MONTH = '208.67';       // DOLE convention for monthly → hourly
     private const OT_MULTIPLIER   = '1.00';
@@ -77,7 +77,7 @@ class PayrollService {
 
         $this->timesheet->summarizePeriod($start, $end);
 
-        $employees = $this->employeesToPay($employeeId, $frequency);
+        $employees = $this->employeesToPay($employeeId, $frequency, $start, $end);
         $this->repository->transaction(function () use ($employees, $start, $end, $computedBy) {
             foreach ($employees as $employee) {
                 $this->saveComputed($this->computeForPeriod((int) $employee['id'], $start, $end, $computedBy));
@@ -142,15 +142,27 @@ class PayrollService {
     }
 
     /** @return array<int, array> employee rows as arrays */
-    private function employeesToPay(int $employeeId, string $frequency): array {
+    private function employeesToPay(int $employeeId, string $frequency, string $start, string $end): array {
         $employees = $employeeId > 0
             ? [$this->requireEmployee($employeeId)]
             : array_map(fn($e) => $e->toArray(), $this->employees->findAllActive());
 
-        if ($frequency === '') {
-            return $employees;
+        if ($frequency !== '') {
+            $employees = array_values(array_filter($employees, fn(array $e) => $e['pay_frequency'] === $frequency));
         }
-        return array_values(array_filter($employees, fn(array $e) => $e['pay_frequency'] === $frequency));
+
+        $cycles = new PayCycleService($this->settings);
+        $strict = $employeeId > 0 || $frequency !== '';
+        $fits   = [];
+        foreach ($employees as $e) {
+            $error = $cycles->periodError((string) $e['pay_frequency'], $start, $end);
+            if ($error === null) {
+                $fits[] = $e;
+            } elseif ($strict) {
+                throw new DomainException($error);
+            }
+        }
+        return $fits;
     }
 
     private function assertFrequency(string $frequency): void {
