@@ -1,127 +1,118 @@
 (function () {
   "use strict";
 
-  const sidebar = document.getElementById("sidebar");
-  const overlay = document.getElementById("drawer-overlay");
-  const hamburgerBtn = document.getElementById("hamburger-btn");
-  const iconMenu = document.getElementById("icon-menu");
-  const iconClose = document.getElementById("icon-close");
-  function openDrawer() {
-    sidebar.classList.remove("-translate-x-full");
-    overlay.classList.remove("opacity-0", "pointer-events-none");
-    iconMenu.classList.add("hidden");
-    iconClose.classList.remove("hidden");
-    hamburgerBtn.setAttribute("aria-expanded", "true");
-  }
-  function closeDrawer() {
-    sidebar.classList.add("-translate-x-full");
-    overlay.classList.add("opacity-0", "pointer-events-none");
-    iconMenu.classList.remove("hidden");
-    iconClose.classList.add("hidden");
-    hamburgerBtn.setAttribute("aria-expanded", "false");
-  }
-  hamburgerBtn.addEventListener("click", function () {
-    if (hamburgerBtn.getAttribute("aria-expanded") === "true") closeDrawer();
-    else openDrawer();
-  });
-  overlay.addEventListener("click", closeDrawer);
-  document.addEventListener("keydown", function (e) {
-    if (
-      e.key === "Escape" &&
-      hamburgerBtn.getAttribute("aria-expanded") === "true"
-    ) {
-      closeDrawer();
-      hamburgerBtn.focus();
-    }
-  });
-  sidebar.querySelectorAll("a").forEach(function (l) {
-    l.addEventListener("click", function () {
-      if (window.innerWidth < 1024) closeDrawer();
-    });
-  });
+  const LABELS = {
+    AM_IN: "TIME IN",
+    PM_OUT: "TIME OUT",
+    AM_OUT: "LUNCH OUT",
+    PM_IN: "LUNCH IN",
+    OT_IN: "OT IN",
+    OT_OUT: "OT OUT",
+  };
 
-  function escapeHtml(s) {
+  const tbody = document.getElementById("loc-tbody");
+  const employeeSelect = document.getElementById("filter-employee");
+  const startInput = document.getElementById("filter-start");
+  const endInput = document.getElementById("filter-end");
+  const names = {};
+
+  function esc(s) {
     const d = document.createElement("div");
-    d.textContent = String(s);
+    d.textContent = s == null ? "" : String(s);
     return d.innerHTML;
   }
 
-  const PUNCHES = ["AM IN", "AM OUT", "PM IN", "PM OUT", "OT IN", "OT OUT"];
-  const FLAGS = [
-    null,
-    null,
-    null,
-    null,
-    { reason: "GPS outside site radius", code: "GPS_OUT_OF_SITE" },
-    { reason: "Low GPS accuracy (>100m)", code: "LOW_ACCURACY" },
-    { reason: "IP address changed mid-shift", code: "IP_CHANGE" },
-  ];
-  const rows = [];
-  for (let i = 0; i < 24; i++) {
-    const d = new Date(2026, 3, 8);
-    d.setDate(d.getDate() - Math.floor(i / 6));
-    d.setHours(7 + (i % 10), (i * 7) % 60, (i * 13) % 60);
-    rows.push({
-      date: d.toISOString().substring(0, 10),
-      punch: PUNCHES[i % PUNCHES.length],
-      time:
-        String(d.getHours()).padStart(2, "0") +
-        ":" +
-        String(d.getMinutes()).padStart(2, "0"),
-      ip: "192.168.1." + (10 + (i % 40)),
-      lat: (14.5995 + (Math.random() - 0.5) * 0.1).toFixed(5),
-      lng: (120.9842 + (Math.random() - 0.5) * 0.1).toFixed(5),
-      accuracy: Math.floor(5 + Math.random() * 120),
-      flag: FLAGS[i % FLAGS.length],
-    });
+  function ymd(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
-  const tbody = document.getElementById("loc-tbody");
-  rows.forEach(function (r) {
-    const tr = document.createElement("tr");
-    tr.className = "hover:bg-slate-50 transition-colors";
-    const flagCell = r.flag
-      ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-[10px] font-bold font-mono uppercase tracking-wider" title="' +
-        escapeHtml(r.flag.reason) +
-        '">' +
-        '<svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>' +
-        escapeHtml(r.flag.code) +
-        "</span>"
+  function message(text) {
+    tbody.innerHTML =
+      '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-400">' + esc(text) + "</td></tr>";
+  }
+
+  function row(r) {
+    const type = String(r.punch_type || "");
+    const isIn = type.indexOf("IN") !== -1;
+    const time = String(r.punch_time || "").split(" ")[1] || "";
+    const hasGps = r.gps_lat != null && r.gps_lng != null;
+
+    const gps = hasGps
+      ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(r.gps_lat + "," + r.gps_lng) +
+        '" target="_blank" rel="noopener" class="font-mono text-xs text-emerald-700 hover:text-emerald-800 hover:underline">' +
+        esc(Number(r.gps_lat).toFixed(5) + ", " + Number(r.gps_lng).toFixed(5)) + "</a>"
+      : '<span class="font-mono text-xs text-slate-400">No location</span>';
+
+    const acc = r.accuracy != null
+      ? '<span class="' + (r.accuracy > 100 ? "text-red-600 font-semibold" : "text-slate-600") + '">±' + esc(r.accuracy) + "m</span>"
+      : '<span class="text-slate-400">—</span>';
+
+    const flag = r.is_flagged
+      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-[11px] font-semibold">' +
+        esc(r.flag_reason || "Flagged") + "</span>"
       : '<span class="font-mono text-xs text-slate-400">—</span>';
 
-    const mapsUrl = "https://www.google.com/maps?q=" + r.lat + "," + r.lng;
-    tr.innerHTML =
-      '<td class="px-4 py-3 font-mono text-xs text-slate-700 whitespace-nowrap">' +
-      escapeHtml(r.date) +
-      "</td>" +
+    return (
+      '<tr class="hover:bg-slate-50 transition-colors">' +
+      '<td class="px-4 py-3 font-mono text-xs text-slate-700 whitespace-nowrap">' + esc(r.work_date) + "</td>" +
+      '<td class="px-4 py-3 text-sm text-slate-800 whitespace-nowrap">' + esc(names[r.employee_id] || "#" + r.employee_id) + "</td>" +
       '<td class="px-4 py-3 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded font-mono text-[10px] font-semibold ' +
-      (r.punch.indexOf("IN") !== -1
-        ? "bg-emerald-100 text-emerald-800"
-        : "bg-slate-200 text-slate-700") +
-      '">' +
-      escapeHtml(r.punch) +
-      "</span></td>" +
-      '<td class="px-4 py-3 font-mono text-xs text-slate-700 whitespace-nowrap">' +
-      escapeHtml(r.time) +
-      "</td>" +
-      '<td class="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">' +
-      escapeHtml(r.ip) +
-      "</td>" +
-      '<td class="px-4 py-3 whitespace-nowrap"><a href="' +
-      mapsUrl +
-      '" target="_blank" rel="noopener" class="font-mono text-xs text-emerald-700 hover:text-emerald-800 hover:underline">' +
-      r.lat +
-      ", " +
-      r.lng +
-      "</a></td>" +
-      '<td class="px-4 py-3 text-right font-mono text-xs whitespace-nowrap ' +
-      (r.accuracy > 100 ? "text-red-600 font-semibold" : "text-slate-600") +
-      '">±' +
-      r.accuracy +
-      "m</td>" +
-      '<td class="px-4 py-3 whitespace-nowrap">' +
-      flagCell +
-      "</td>";
-    tbody.appendChild(tr);
+      (isIn ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700") + '">' + esc(LABELS[type] || type) + "</span></td>" +
+      '<td class="px-4 py-3 font-mono text-xs text-slate-700 whitespace-nowrap">' + esc(time.substring(0, 5)) + "</td>" +
+      '<td class="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">' + esc(r.ip_address || "—") + "</td>" +
+      '<td class="px-4 py-3 whitespace-nowrap">' + gps + "</td>" +
+      '<td class="px-4 py-3 text-right font-mono text-xs whitespace-nowrap">' + acc + "</td>" +
+      '<td class="px-4 py-3">' + flag + "</td>" +
+      "</tr>"
+    );
+  }
+
+  async function load() {
+    const start = startInput.value;
+    const end = endInput.value;
+    if (!start || !end) return message("Pick a date range.");
+    if (start > end) return message("Date From must be before Date To.");
+
+    message("Loading…");
+    const params = { start: start, end: end };
+    if (employeeSelect.value) params.employee_id = employeeSelect.value;
+
+    try {
+      const rows = await api.get("location-log", "locationLog", { params: params });
+      if (!Array.isArray(rows) || rows.length === 0) return message("No punches in this range.");
+      rows.sort(function (a, b) { return String(b.punch_time).localeCompare(String(a.punch_time)); });
+      tbody.innerHTML = rows.map(row).join("");
+    } catch (err) {
+      message(err.message || "Failed to load location logs.");
+    }
+  }
+
+  async function loadEmployees() {
+    try {
+      const list = await api.get("employees", "index");
+      (Array.isArray(list) ? list : []).forEach(function (e) {
+        const name = e.name || e.full_name;
+        if (e.id == null || !name) return;
+        names[e.id] = name;
+        const opt = document.createElement("option");
+        opt.value = String(e.id);
+        opt.textContent = name;
+        employeeSelect.appendChild(opt);
+      });
+    } catch (err) {
+      // names fall back to #id
+    }
+  }
+
+  const today = new Date();
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 6);
+  startInput.value = ymd(weekAgo);
+  endInput.value = ymd(today);
+
+  [employeeSelect, startInput, endInput].forEach(function (el) {
+    el.addEventListener("change", load);
   });
+
+  loadEmployees().then(load);
 })();
