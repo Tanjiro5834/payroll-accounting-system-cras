@@ -45,7 +45,10 @@ class PunchController extends BaseController {
             $id       = $this->resolveEmployee($employeeId);
             $employee = $this->employees->getById($id) ?? throw new DomainException('Employee not found.');
 
-            Response::json(['employee' => $this->card($employee)] + $this->service->getTodayStatus($id));
+            Response::json([
+                'employee'     => $this->card($employee),
+                'can_pick_any' => $this->isStaff(),
+            ] + $this->service->getTodayStatus($id));
         }, 'Failed to load punch status.');
     }
 

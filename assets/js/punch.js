@@ -317,10 +317,22 @@
 
   document.getElementById("device_fingerprint").value = computeFingerprint();
 
+    // Employees skip the list page (it redirects them straight back here), so Back goes to their dashboard.
+  function pointBackToDashboard() {
+    document.querySelectorAll('a[href="index.php?page=punch-employee-list"]').forEach(function (a) {
+      a.href = "index.php?page=my-dashboard";
+      a.setAttribute("aria-label", "Back to dashboard");
+      a.childNodes.forEach(function (n) {
+        if (n.nodeType === Node.TEXT_NODE && n.textContent.trim()) n.textContent = " Back to dashboard ";
+      });
+    });
+  }
+
   async function load() {
     try {
       const status = await api.get("punch", "todayStatus", employeeId ? { id: employeeId } : {});
       renderEmployee(status.employee);
+      if (!status.can_pick_any) pointBackToDashboard();
       applyStatus(status);
     } catch (error) {
       document.getElementById("header-name").textContent = "Couldn't load";
