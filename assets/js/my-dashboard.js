@@ -115,8 +115,6 @@
     $("greeting").textContent = greeting() + ", " + first;
     $("hero-sub").textContent = p.role + " · " + (FREQ[p.pay_frequency] || p.pay_frequency) + " pay";
     avatar($("hero-avatar"), p.photo, p.full_name);
-    avatar($("modal-avatar"), p.photo, p.full_name, "text-2xl");
-    $("photo-remove").classList.toggle("hidden", !p.photo);
 
     renderInsights(s.insights);
 
@@ -466,76 +464,20 @@
     document.body.classList.remove("ui-drawer-locked");
     if (lastFocus) lastFocus.focus();
   }
-  document.querySelectorAll("#payslip-modal, #profile-modal").forEach(function (modal) {
+  document.querySelectorAll("#payslip-modal").forEach(function (modal) {
     modal.addEventListener("click", function (e) {
       if (e.target === modal || e.target.closest("[data-close]")) closeModal(modal);
     });
   });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
-    document.querySelectorAll("#payslip-modal:not(.hidden), #profile-modal:not(.hidden)").forEach(closeModal);
+    document.querySelectorAll("#payslip-modal:not(.hidden)").forEach(closeModal);
   });
 
   // "Edit profile" lives in the sidebar; on this page it opens the modal instead of reloading.
-  const editProfileLink = document.getElementById("sidebar-edit-profile");
-  if (editProfileLink) {
-    editProfileLink.addEventListener("click", function (e) {
-      e.preventDefault();
-      const overlay = document.getElementById("drawer-overlay");
-      if (overlay && !overlay.classList.contains("pointer-events-none")) overlay.click();
-      openModal("profile-modal");
-    });
-  }
-  if (location.hash === "#edit-profile") {
-    history.replaceState(null, "", location.pathname + location.search);
-    openModal("profile-modal");
-  }
-
-  const MAX_PHOTO = 5 * 1024 * 1024;
-  $("photo-input").addEventListener("change", async function () {
-    const file = this.files && this.files[0];
-    this.value = "";
-    if (!file) return;
-    if (file.size > MAX_PHOTO) return toast("Photo is larger than 5MB.");
-    const body = new FormData();
-    body.append("photo", file);
-    try {
-      await api.post("my-dashboard", "uploadPhoto", { body: body });
-      toast("Photo updated.", true);
-      loadSummary();
-    } catch (e) {
-      toast(e.message);
-    }
-  });
-
-  $("photo-remove").addEventListener("click", async function () {
-    if (!confirm("Remove your profile photo?")) return;
-    try {
-      await api.post("my-dashboard", "removePhoto");
-      toast("Photo removed.", true);
-      loadSummary();
-    } catch (e) {
-      toast(e.message);
-    }
-  });
-
-  $("password-form").addEventListener("submit", async function (e) {
-    e.preventDefault();
-    const next = $("new_password").value;
-    if (next !== $("confirm_password").value) return toast("New passwords don't match.");
-    const btn = $("password-save");
-    btn.disabled = true;
-    try {
-      await api.post("my-dashboard", "changePassword", {
-        body: { current_password: $("current_password").value, new_password: next },
-      });
-      this.reset();
-      toast("Password updated.", true);
-    } catch (err) {
-      toast(err.message);
-    } finally {
-      btn.disabled = false;
-    }
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    document.querySelectorAll("#payslip-modal:not(.hidden), #profile-modal:not(.hidden)").forEach(closeModal);
   });
 
   /* ---------------- Boot ---------------- */

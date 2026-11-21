@@ -81,6 +81,7 @@ function renderPartial(string $name, array $vars): string {
 $routes = [
     'login'            => ['auth/login',                        AuthController::class,            null,       ['login', 'logout']],
     'my-dashboard'     => ['dashboard/my-dashboard',            MyDashboardController::class,     'employee', ['summary', 'attendance', 'trend', 'payslips', 'payslip', 'rateHistory', 'uploadPhoto', 'removePhoto', 'changePassword']],
+        'my-profile'       => ['dashboard/my-profile',              MyDashboardController::class,     'employee', ['summary']],
     'my-time-logs'     => ['dashboard/my-time-logs',            MyTimeLogController::class,       'employee', ['month']],
     'dashboard'        => ['dashboard/dashboard',               DashboardController::class,       'admin',    ['kpiSummary', 'todayActivity', 'flaggedPunches', 'payrollPending', 'recentActivity']],
     'employee-form'    => ['employees/employee-form',           EmployeeController::class,        'admin',    ['show', 'store', 'update']],
