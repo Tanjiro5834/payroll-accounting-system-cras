@@ -215,7 +215,7 @@
     if (v === "monthly") {
       monthlyWrap.classList.remove("hidden");
       hourlyWrap.classList.add("hidden");
-    } else if (v === "weekly" || v === "kinsenas") {
+    } else if (v === "weekly" || v === "biweekly" || v === "kinsenas") {
       hourlyWrap.classList.remove("hidden");
       monthlyWrap.classList.add("hidden");
     } else {

@@ -75,7 +75,7 @@
 
             <form id="employee-form" method="POST" class="space-y-6">
 
-                <section class="bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-6 page-enter">
+                <section class="relative z-20 bg-white rounded-2xl border border-line shadow-sm p-4 sm:p-6 page-enter">
                     <h2 class="text-sm font-bold tracking-tight text-ink mb-4 pb-3 border-b border-line">Personal Information</h2>
 
                     <div class="flex flex-col sm:flex-row items-start gap-5 mb-5">
@@ -100,21 +100,18 @@
 
                         <div>
                             <label for="role" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Role <span class="text-negative">*</span></label>
-                            <input type="text" id="role" name="role" list="role-options" required maxlength="50" autocomplete="off" class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]" placeholder="e.g. Technician">
-                            <datalist id="role-options">
-                                <option value="Technician">
-                                <option value="Admin">
-                                <option value="Secretary">
-                                <option value="Driver">
-                                <option value="Helper">
-                                <option value="Construction Worker">
-                                <option value="Web Developer"></option>
-                            </datalist>
+                            <div class="relative" id="role-combo">
+                                <input type="text" id="role" name="role" required maxlength="50" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="role-menu" class="w-full pl-3 pr-11 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]" placeholder="Pick or type a role">
+                                <button type="button" id="role-toggle" tabindex="-1" aria-label="Show roles" class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-slate-400 hover:text-coolant">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                                </button>
+                                <ul id="role-menu" role="listbox" class="hidden absolute z-30 mt-1.5 w-full max-h-60 overflow-auto rounded-xl border border-line bg-white shadow-lg py-1 text-sm"></ul>
+                            </div>
                         </div>
 
                         <div>
-                            <label for="date_hired" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date Hired <span class="text-negative">*</span></label>
-                            <input type="date" id="date_hired" name="date_hired" required class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
+                            <label for="date_hired" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Date Hired <span class="normal-case tracking-normal font-normal text-slate-400">(optional)</span></label>
+                            <input type="date" id="date_hired" name="date_hired" class="num w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
                         </div>
                     </div>
                 </section>
@@ -149,6 +146,7 @@
                             <select id="pay_frequency" name="pay_frequency" required class="w-full px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-frost focus:border-coolant transition-colors min-h-[44px]">
                                 <option value="">Select frequency…</option>
                                 <option value="weekly">Weekly</option>
+                                <option value="biweekly">Every 2 weeks (Bi-weekly)</option>
                                 <option value="kinsenas">Kinsenas (Semi-monthly)</option>
                                 <option value="monthly">Monthly</option>
                             </select>
@@ -195,6 +193,7 @@
 
     <script src="assets/js/api.js"></script>
     <script src="assets/js/employee-form.js"></script>
+    <script src="assets/js/role-combobox.js"></script>
     <script src="assets/js/ui.js"></script>
 </body>
 </html>
